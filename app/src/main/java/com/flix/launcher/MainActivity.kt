@@ -292,7 +292,7 @@ class MainActivity : Activity() {
     private var rowsBuiltFrom: List<Any>? = null
 
     private fun rowsSnapshot(): List<Any> = listOf(
-        listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.CONTINUE_APPS,
+        listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING,
             FlixSettings.TOP_TEN, FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
         PinLock.kidsMode(this),
         Addons.rows(this),

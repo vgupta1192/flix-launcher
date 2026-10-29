@@ -1,3 +1,11 @@
+## [1.1.6] - 2026-10-30
+
+### Removed
+- The app cards are gone from Continue watching — other apps' titles can't be read, and bare
+  app icons looked out of place next to real posters. The row is Nuvio titles again, and the
+  "Apps in Continue watching" setting with it. (The icons this row shared with the favourites
+  tiles could also distort them; that's gone too.)
+
 ## [1.1.5] - 2026-10-30
 
 ### Changed

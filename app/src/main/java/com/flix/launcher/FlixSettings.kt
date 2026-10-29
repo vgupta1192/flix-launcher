@@ -65,9 +65,7 @@ object FlixSettings {
     // Movies & shows
     val SUGGESTIONS = toggle("suggestions", "Movie & show rows", summary = "Rows from your addons; OK opens in Nuvio")
     val BILLBOARD = toggle("billboard", "Featured carousel", summary = "Big rotating posters above the rows")
-    val CONTINUE_WATCHING = toggle("continue_watching", "Continue watching", summary = "From your Nuvio account and your apps")
-    val CONTINUE_APPS = toggle("continue_apps", "Apps in Continue watching",
-        summary = "Resume cards for the video apps you've been opening, next to Nuvio's")
+    val CONTINUE_WATCHING = toggle("continue_watching", "Continue watching", summary = "From your Nuvio account")
     val GENRE = Option("genre", "Genre filter", listOf("all" to "All genres", "Action" to "Action", "Comedy" to "Comedy", "Drama" to "Drama",
         "Thriller" to "Thriller", "Horror" to "Horror", "Romance" to "Romance", "Sci-Fi" to "Sci-Fi", "Animation" to "Animation",
         "Crime" to "Crime", "Family" to "Family"), "all", summary = "Only for rows whose addon supports it")

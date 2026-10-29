@@ -104,7 +104,7 @@ class MovieRows(
 
     private var lastContinueAt = 0L
 
-    /** Re-reads Nuvio watch progress and gathers the app resume cards, at most every couple of minutes. */
+    /** Re-reads Nuvio watch progress, at most every couple of minutes. */
     fun refreshContinue(force: Boolean = false) {
         val row = rows.firstOrNull { it.source === CONTINUE } ?: return
         if (!force && System.currentTimeMillis() - lastContinueAt < 120_000) return
@@ -115,10 +115,8 @@ class MovieRows(
                 runCatching { NuvioAccount.continueWatching(activity) }
                     .onFailure { android.util.Log.w("Flix", "Continue watching failed", it) }.getOrNull()
                 else null
-            val apps = if (FlixSettings.isOn(activity, FlixSettings.CONTINUE_APPS)) Resumes.cards(activity) else emptyList()
             val titles = buildList {
                 if (!signedIn) add(SIGN_IN)
-                addAll(apps) // the apps opened most recently lead the row
                 if (nuvio != null) addAll(nuvio)
             }
             if (titles.isEmpty()) return@execute

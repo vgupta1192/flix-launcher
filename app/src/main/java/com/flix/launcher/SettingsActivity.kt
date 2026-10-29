@@ -391,7 +391,6 @@ class SettingsActivity : Activity() {
         opt(1, "On the home screen", FlixSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
         opt(1, "On the home screen", FlixSettings.BILLBOARD, R.drawable.ic_o_layers, "carousel billboard banner featured hero slideshow poster")
         opt(1, "On the home screen", FlixSettings.CONTINUE_WATCHING, R.drawable.ic_o_resume, "resume progress")
-        opt(1, "On the home screen", FlixSettings.CONTINUE_APPS, R.drawable.ic_o_tv, "resume apps continue watching jump back apps row")
         opt(1, "On the home screen", FlixSettings.TOP_TEN, R.drawable.ic_o_rank, "top 10 english popular tamil")
         opt(1, "On the home screen", FlixSettings.GENRE, R.drawable.ic_o_filter, "category type")
         opt(1, "Previews", FlixSettings.TRAILERS, R.drawable.ic_o_play, "video preview autoplay")
