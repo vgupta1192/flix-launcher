@@ -45,8 +45,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(grep -o 'versionName = "[^"]*"' app/build.gradle.kts | cut -d'"' -f2)
-          CODE=$(grep -o 'versionCode = [0-9]*' app/build.gradle.kts | awk '{print $2}')
+          VERSION=$(sed -nE 's/.*versionName = "([^"]*)".*/\1/p' app/build.gradle.kts)
+          CODE=$(sed -nE 's/.*versionCode = ([0-9]+).*/\1/p' app/build.gradle.kts)
           # GitHub keeps the file name for .apk assets (labels are ignored), so name it for the updater.
           APK="flix-launcher-$CODE.apk"
           cp app/build/outputs/apk/release/app-release.apk "$APK"
