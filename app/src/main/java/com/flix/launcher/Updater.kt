@@ -27,15 +27,21 @@ object Updater {
 
     private fun prefs(context: Context) = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
 
-    data class Release(val code: Long, val version: String, val url: String, val notes: String)
-
-    private fun installedCode(context: Context) =
-        context.packageManager.getPackageInfo(context.packageName, 0).let {
-            if (Build.VERSION.SDK_INT >= 28) it.longVersionCode else @Suppress("DEPRECATION") it.versionCode.toLong()
-        }
+    data class Release(val version: String, val url: String, val notes: String)
 
     private fun installedVersion(context: Context) =
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "0"
+
+    /** "1.2.10" vs "1.2.9" — compares each dot-separated number. */
+    private fun isNewer(current: String, candidate: String): Boolean {
+        fun nums(s: String) = s.removePrefix("v").split('.').map { it.filter(Char::isDigit).ifEmpty { "0" }.toInt() }
+        val a = nums(current); val b = nums(candidate)
+        for (i in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
+            if (x != y) return y > x
+        }
+        return false
+    }
 
     fun lastResult(context: Context) = prefs(context).getString("result", null)
 
@@ -51,11 +57,7 @@ object Updater {
         val asset = o.optJSONArray("assets")?.let { a ->
             (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("name").endsWith(".apk") }
         } ?: return@runCatching null
-        // The asset name carries the version code (flix-launcher-3.apk); the tag carries the name (v1.0.2).
-        val code = Regex("(\\d+)\\.apk$").find(asset.optString("name"))?.groupValues?.get(1)?.toLongOrNull()
-            ?: o.optString("tag_name").removePrefix("v").split('.').reduce { acc, s -> acc + s.padStart(3, '0') }.toLongOrNull()
-            ?: return@runCatching null
-        Release(code, o.optString("tag_name").removePrefix("v"), asset.optString("browser_download_url"),
+        Release(o.optString("tag_name").removePrefix("v"), asset.optString("browser_download_url"),
             o.optString("body").split('\n').firstOrNull()?.take(120) ?: "")
     }.getOrNull()
 
@@ -67,7 +69,7 @@ object Updater {
         p.edit().putLong("checked_at", System.currentTimeMillis()).apply()
         Thread {
             val r = runCatching { latest(context) }.getOrNull() ?: return@Thread
-            if (r.code <= installedCode(context)) return@Thread
+            if (!isNewer(installedVersion(context), r.version)) return@Thread
             prepare(context, r)
         }.start()
     }
@@ -80,11 +82,11 @@ object Updater {
             val release = r.getOrNull()
             val message = when {
                 release == null -> "Couldn't reach GitHub — try again later"
-                release.code <= installedCode(context) -> "You're up to date (v${installedVersion(context)})"
+                !isNewer(installedVersion(context), release.version) -> "You're up to date (v${installedVersion(context)})"
                 else -> "Updating to v${release.version}…"
             }
             runOnUiThread(context) { Toast.makeText(context, message, Toast.LENGTH_LONG).show() }
-            if (release != null && release.code > installedCode(context)) prepare(context, release)
+            if (release != null && isNewer(installedVersion(context), release.version)) prepare(context, release)
         }.start()
     }
 
