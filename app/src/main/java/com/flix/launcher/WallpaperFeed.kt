@@ -31,29 +31,29 @@ object WallpaperFeed {
     private class Entry(val url: String, val title: String)
 
     private val entries = HashMap<String, List<Entry>>()
-    private var ready: Pair<Bitmap, String>? = null
+    private var ready: Triple<Bitmap, String, String>? = null
     private var readyKind: String? = null
 
     /**
-     * Hands back the next photo of [kind] ("nature" or "cities") and its place name, or null
-     * when offline (the caller falls back to the built-in set).
+     * Hands back the next photo of [kind] with its place name and URL (for the ambient
+     * tint), or nulls when offline (the caller falls back to the built-in set).
      */
-    fun next(context: Context, widthPx: Int, kind: String, onReady: (Bitmap?, String?) -> Unit) {
+    fun next(context: Context, widthPx: Int, kind: String, onReady: (Bitmap?, String?, String?) -> Unit) {
         val app = context.applicationContext
         worker.execute {
             val photo = ready?.takeIf { readyKind == kind }.also { ready = null } ?: fetchOne(app, widthPx, kind)
-            main.post { onReady(photo?.first, photo?.second) }
+            main.post { onReady(photo?.first, photo?.second, photo?.third) }
             // Get the one after this ready while it's on screen.
             if (photo != null) { ready = fetchOne(app, widthPx, kind); readyKind = kind }
         }
     }
 
-    private fun fetchOne(context: Context, widthPx: Int, kind: String): Pair<Bitmap, String>? {
+    private fun fetchOne(context: Context, widthPx: Int, kind: String): Triple<Bitmap, String, String>? {
         val list = catalog(context, kind).ifEmpty { return null }
         repeat(3) {
             val e = list.random()
             val bmp = runCatching { decode(download(e.url), widthPx) }.getOrNull()
-            if (bmp != null) return bmp to e.title
+            if (bmp != null) return Triple(bmp, e.title, e.url)
         }
         return null
     }

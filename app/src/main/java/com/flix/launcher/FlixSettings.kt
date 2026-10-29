@@ -50,6 +50,7 @@ object FlixSettings {
     val SHUFFLE = toggle("shuffle", "Shuffle scenes")
     val DIM = Option("dim", "Background dimming", listOf("low" to "Low", "medium" to "Medium", "high" to "High"), "medium")
     val SCENE_NAME = toggle("scene_name", "Scene name")
+    val AMBIENT = toggle("ambient_tint", "Ambient tint", summary = "The scene's colours wash into the home screen")
     val KBURNS = toggle("kenburns", "Wallpaper drift", summary = "Photos pan and zoom slowly while on screen")
     val NIGHT = Option("night_dim", "Night dimming",
         listOf("off" to "Off", "22" to "From 22:00", "23" to "From 23:00", "0" to "From midnight"), "off",

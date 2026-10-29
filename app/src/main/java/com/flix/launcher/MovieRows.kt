@@ -54,6 +54,8 @@ class MovieRows(
         sharedPool = RecyclerView.RecycledViewPool()
         detailed = null
         billboard.reset()
+        // Kids mode: a favourites-only home — no billboard, catalogue rows or continue watching.
+        if (PinLock.kidsMode(activity)) return
         if (!FlixSettings.isOn(activity, FlixSettings.SUGGESTIONS)) return
         val genre = FlixSettings.get(activity, FlixSettings.GENRE).takeIf { it != "all" }
         val sources = Addons.rows(activity).filter { it.enabled }

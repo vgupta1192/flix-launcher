@@ -199,6 +199,11 @@ class MainActivity : Activity() {
     }
 
     private fun openFlixSettings() {
+        // Kids mode must not be switchable by the kids themselves.
+        if (PinLock.kidsMode(this) && !PinLock.sessionUnlocked) {
+            PinLock.enter(this, "Parental PIN") { ok -> if (ok) { PinLock.sessionUnlocked = true; openFlixSettings() } }
+            return
+        }
         settingsOpen = true
         startActivity(Intent(this, SettingsActivity::class.java))
         overridePendingTransition(0, 0)
@@ -256,6 +261,10 @@ class MainActivity : Activity() {
         greeting.visibility = if (isOn(FlixSettings.GREETING)) View.VISIBLE else View.GONE
         date.visibility = if (isOn(FlixSettings.DATE)) View.VISIBLE else View.GONE
         findViewById<View>(R.id.weather_card).visibility = if (isOn(FlixSettings.WEATHER)) View.VISIBLE else View.GONE
+        // Kids mode hides the library tabs: the kids home is the favourites row only.
+        val kids = PinLock.kidsMode(this)
+        findViewById<View>(R.id.nav_apps).visibility = if (kids) View.GONE else View.VISIBLE
+        findViewById<View>(R.id.nav_search).visibility = if (kids) View.GONE else View.VISIBLE
         lastReport?.let(::showWeather)
         main.removeCallbacks(tick)
         main.post(tick)
@@ -285,6 +294,7 @@ class MainActivity : Activity() {
     private fun rowsSnapshot(): List<Any> = listOf(
         listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.CONTINUE_APPS,
             FlixSettings.TOP_TEN, FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
+        PinLock.kidsMode(this),
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
         packageManager.getLaunchIntentForPackage(nuvio(packageManager)) != null,
@@ -475,17 +485,19 @@ class MainActivity : Activity() {
 
     /** A Continue watching card for an app: opening it is the resume (see [Resumes]). */
     private fun openResumeApp(pkg: String, label: String) {
-        val intent = packageManager.getLeanbackLaunchIntentForPackage(pkg)
-            ?: packageManager.getLaunchIntentForPackage(pkg)
-        if (intent == null) {
-            Toast.makeText(this, "$label isn't installed anymore", Toast.LENGTH_SHORT).show()
-            return
+        PinLock.gate(this, pkg) {
+            val intent = packageManager.getLeanbackLaunchIntentForPackage(pkg)
+                ?: packageManager.getLaunchIntentForPackage(pkg)
+            if (intent == null) {
+                Toast.makeText(this, "$label isn't installed anymore", Toast.LENGTH_SHORT).show()
+                return@gate
+            }
+            Resumes.note(this, pkg)
+            trailer.stop()
+            main.removeCallbacks(pauseForBackdrop)
+            player?.pause()
+            open(intent)
         }
-        Resumes.note(this, pkg)
-        trailer.stop()
-        main.removeCallbacks(pauseForBackdrop)
-        player?.pause()
-        open(intent)
     }
 
     private fun showTitleMenu(title: Catalog.Title) {
@@ -506,14 +518,24 @@ class MainActivity : Activity() {
      * full-screen layer costs the TV's GPU a whole frame's worth of pixels.
      */
     private fun paintScrim(dim: Float) {
-        // With no scenery (no wallpaper source, or the plain background), the dark backdrop
-        // needs no shading on top: one less full-screen layer for the GPU to fill.
-        scrim.visibility = if (player == null && scenery().none { it.isVideo } || !videoWallpaper()) View.GONE else View.VISIBLE
+        // Ambient tint: photos cast their own colour, gently, where the video scenery gets
+        // its full shading; [sceneAccent] rides along with the dim (and the night dim).
+        val ambient = isOn(FlixSettings.AMBIENT) && sceneAccent != 0
+        val hsv = FloatArray(3)
+        android.graphics.Color.colorToHSV(sceneAccent, hsv)
+        hsv[2] *= 0.32f // a deep version of the scene's colour
+        val base = if (ambient) android.graphics.Color.HSVToColor(hsv) and 0x00FFFFFF else 0
+        scrim.visibility = when {
+            !videoWallpaper() && ambient -> View.VISIBLE
+            player == null && scenery().none { it.isVideo } || !videoWallpaper() -> View.GONE
+            else -> View.VISIBLE
+        }
         findViewById<View>(R.id.dim).visibility = View.GONE
-        fun shade(a: Float) = (((a + dim * (1 - a)).coerceIn(0f, 1f) * 255).toInt() shl 24)
+        fun shade(a: Float) = (((a + dim * (1 - a)).coerceIn(0f, 1f) * 255).toInt() shl 24) or base
         scrim.background = android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP,
-            intArrayOf(shade(0.85f), shade(0.25f), shade(0.05f), shade(0.45f)),
+            if (ambient && player == null) intArrayOf(shade(0.30f), shade(0.12f), shade(0.03f), shade(0.16f))
+            else intArrayOf(shade(0.85f), shade(0.25f), shade(0.05f), shade(0.45f)),
         )
     }
 
@@ -684,6 +706,7 @@ class MainActivity : Activity() {
 
     override fun onStop() {
         started = false
+        PinLock.clearSession() // a kid can't unlock once and keep going after leaving the launcher
         Images.trim()
         main.removeCallbacks(tick)
         main.removeCallbacks(nextImage)
@@ -829,7 +852,9 @@ class MainActivity : Activity() {
     }
 
     private fun setIdle(value: Boolean) {
-        if (value && (scenery().isEmpty() || !videoWallpaper())) return scheduleIdle() // nothing to look at without scenery
+        // Photo wallpapers idle into a picture frame too: the rotation keeps going and the
+        // scene caption shows, exactly like the aerial-video scenery.
+        if (value && scenery().isEmpty()) return scheduleIdle() // nothing to look at without scenery
         if (value && trailer.isPlaying) return scheduleIdle() // let the trailer play out
         if (value && browsing) returnToStart() // fade to the scenery, not to a paused backdrop
         idle = value
@@ -872,10 +897,12 @@ class MainActivity : Activity() {
 
     private fun bindRows() {
         val byPackage = allApps.associateBy { it.packageName }
-        val favorites = repo.favorites
-        val tile = if (isOn(FlixSettings.ALL_APPS_TILE)) listOf(repo.allAppsTile()) else emptyList()
+        val kids = PinLock.kidsMode(this)
+        val kidSet = PinLock.kidApps(this)
+        val favorites = repo.favorites.let { favs -> if (kids) favs.filter { it in kidSet } else favs }
+        val tile = if (isOn(FlixSettings.ALL_APPS_TILE) && !kids) listOf(repo.allAppsTile()) else emptyList()
         favoritesAdapter.items = favorites.mapNotNull { byPackage[it] } + tile
-        appsAdapter.items = allApps.filter { it.packageName !in favorites }
+        appsAdapter.items = if (kids) emptyList() else allApps.filter { it.packageName !in favorites }
         if (::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE) appsGridAdapter.items = allApps
     }
 
@@ -895,9 +922,11 @@ class MainActivity : Activity() {
     private fun launch(app: AppEntry) {
         if (app.packageName == AppRepository.ALL_APPS_TILE) {
             // Like settings, the All apps page floats over the scenery, so keep it playing.
-            settingsOpen = true
-            startActivity(app.launchIntent)
-            overridePendingTransition(0, 0)
+            PinLock.gate(this, app.packageName) {
+                settingsOpen = true
+                startActivity(app.launchIntent)
+                overridePendingTransition(0, 0)
+            }
             return
         }
         open(app.launchIntent)
@@ -921,6 +950,18 @@ class MainActivity : Activity() {
                     loadApps()
                 })
             }
+            if (PinLock.hasPin(this@MainActivity)) {
+                val locked = app.packageName in PinLock.lockedApps(this@MainActivity)
+                add((if (locked) "Remove PIN lock" else "Require PIN") to {
+                    val on = PinLock.toggleLockedApp(this@MainActivity, app.packageName)
+                    Toast.makeText(this@MainActivity, if (on) "Will ask for the PIN before opening" else "PIN lock removed", Toast.LENGTH_SHORT).show()
+                })
+            }
+            val kid = app.packageName in PinLock.kidApps(this@MainActivity)
+            add((if (kid) "Remove from Kids" else "Kid app") to {
+                PinLock.toggleKidApp(this@MainActivity, app.packageName)
+                if (PinLock.kidsMode(this@MainActivity)) bindRows()
+            })
             add("App info" to { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.packageName}"))) })
             add("Uninstall" to { open(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}"))) })
         }
@@ -972,19 +1013,22 @@ class MainActivity : Activity() {
      * home screen eases back; coming home reverses it (see [playReturn]).
      */
     private fun open(intent: Intent) {
-        Resumes.note(this, intent.component?.packageName)
-        val source = currentFocus
-        val options = source?.let {
-            android.app.ActivityOptions.makeScaleUpAnimation(it, 0, 0, it.width, it.height).toBundle()
-        }
-        launchedFromHome = true
-        ui.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.4f).setDuration(260)
-            .setInterpolator(DecelerateInterpolator(2f)).start()
-        runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options) }
-            .onFailure {
-                playReturn()
-                Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show()
+        val pkg = intent.component?.packageName
+        PinLock.gate(this, pkg) {
+            Resumes.note(this, pkg)
+            val source = currentFocus
+            val options = source?.let {
+                android.app.ActivityOptions.makeScaleUpAnimation(it, 0, 0, it.width, it.height).toBundle()
             }
+            launchedFromHome = true
+            ui.animate().scaleX(0.94f).scaleY(0.94f).alpha(0.4f).setDuration(260)
+                .setInterpolator(DecelerateInterpolator(2f)).start()
+            runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), options) }
+                .onFailure {
+                    playReturn()
+                    Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show()
+                }
+        }
     }
 
     private var launchedFromHome = false
@@ -1089,6 +1133,7 @@ class MainActivity : Activity() {
             // A different wallpaper was picked: drop the old scenery and gather the new.
             main.removeCallbacks(nextImage)
             releasePlayer.run()
+            sceneAccent = 0
             videoView.visibility = View.GONE
             return loadWallpapers()
         }
@@ -1115,6 +1160,7 @@ class MainActivity : Activity() {
         }
         main.removeCallbacks(nextImage) // the photos shown while the clips were found stop here
         drift?.cancel()
+        sceneAccent = 0
         veil.alpha = 1f
         videoView.visibility = View.VISIBLE
         player = SceneryPlayer(videoView, videos, isOn(FlixSettings.SHUFFLE),
@@ -1147,8 +1193,8 @@ class MainActivity : Activity() {
         val choice = wallChoice()
         if (choice == "nature" || choice == "cities") {
             // A fresh photo from the endless feed; the built-in set only when it can't be reached.
-            WallpaperFeed.next(this, resources.displayMetrics.widthPixels, choice) { bitmap, title ->
-                if (bitmap != null) present(bitmap, title) else showBuiltIn(index)
+            WallpaperFeed.next(this, resources.displayMetrics.widthPixels, choice) { bitmap, title, url ->
+                if (bitmap != null) present(bitmap, title, url) else showBuiltIn(index)
             }
             return
         }
@@ -1159,7 +1205,10 @@ class MainActivity : Activity() {
     private var drift: android.animation.ValueAnimator? = null
     private var driftFlip = false
 
-    private fun present(bitmap: android.graphics.Bitmap, title: String?) {
+    /** The current wallpaper's colour, for the ambient tint (see [paintScrim]). */
+    private var sceneAccent = 0
+
+    private fun present(bitmap: android.graphics.Bitmap, title: String?, url: String? = null) {
         if (isDestroyed) return
         // Dip through the dark backdrop so one photo dissolves into the next.
         val first = imageView.drawable == null
@@ -1170,6 +1219,11 @@ class MainActivity : Activity() {
         }.start()
         scrim.visibility = View.VISIBLE
         startDrift()
+        // The scene's own colours wash into the home (see [paintScrim]); hardware bitmaps
+        // can't be read, so the accent comes from the cached file via [Images.accent].
+        if (url != null && isOn(FlixSettings.AMBIENT)) {
+            Images.accent(url) { c -> sceneAccent = c ?: 0; if (!isDestroyed) paintScrim(dimLevel()) }
+        } else sceneAccent = 0
         showSceneTitle(title)
         main.removeCallbacks(nextImage)
         if (started) main.postDelayed(nextImage, ROTATE_MS)

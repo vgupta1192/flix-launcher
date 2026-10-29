@@ -294,9 +294,11 @@ class AllAppsActivity : Activity() {
     // ---- Actions ----
 
     private fun launch(app: AppEntry) {
-        Resumes.note(this, app.launchIntent.component?.packageName)
-        runCatching { startActivity(app.launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-            .onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
+        PinLock.gate(this, app.packageName) {
+            Resumes.note(this, app.launchIntent.component?.packageName)
+            runCatching { startActivity(app.launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                .onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
+        }
     }
 
     private fun openTitle(title: Catalog.Title) {
@@ -310,21 +312,34 @@ class AllAppsActivity : Activity() {
 
     private fun showMenu(app: AppEntry) {
         val favorite = app.packageName in repo.favorites
-        OptionsMenu.show(this, app, listOf(
-            "Open" to { launch(app) },
-            (if (favorite) "Remove from favourites" else "Add to favourites") to {
+        val actions = buildList<Pair<String, () -> Unit>> {
+            add("Open" to { launch(app) })
+            add((if (favorite) "Remove from favourites" else "Add to favourites") to {
                 repo.toggleFavorite(app.packageName)
                 changed()
-                Toast.makeText(this, if (favorite) "Removed from favourites" else "Added to favourites", Toast.LENGTH_SHORT).show()
-            },
-            "Hide from All apps" to {
+                Toast.makeText(this@AllAppsActivity, if (favorite) "Removed from favourites" else "Added to favourites", Toast.LENGTH_SHORT).show()
+            })
+            add("Hide from All apps" to {
                 repo.hide(app.packageName)
                 changed()
                 load()
-            },
-            "App info" to { launch(app.copy(launchIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.packageName}")))) },
-            "Uninstall" to { launch(app.copy(launchIntent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}")))) },
-        ))
+            })
+            if (PinLock.hasPin(this@AllAppsActivity)) {
+                val locked = app.packageName in PinLock.lockedApps(this@AllAppsActivity)
+                add((if (locked) "Remove PIN lock" else "Require PIN") to {
+                    val on = PinLock.toggleLockedApp(this@AllAppsActivity, app.packageName)
+                    Toast.makeText(this@AllAppsActivity, if (on) "Will ask for the PIN before opening" else "PIN lock removed", Toast.LENGTH_SHORT).show()
+                })
+            }
+            val kid = app.packageName in PinLock.kidApps(this@AllAppsActivity)
+            add((if (kid) "Remove from Kids" else "Kid app") to {
+                PinLock.toggleKidApp(this@AllAppsActivity, app.packageName)
+                Toast.makeText(this@AllAppsActivity, if (!kid) "Shows on the kids home" else "Removed from the kids home", Toast.LENGTH_SHORT).show()
+            })
+            add("App info" to { launch(app.copy(launchIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${app.packageName}")))) })
+            add("Uninstall" to { launch(app.copy(launchIntent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}")))) })
+        }
+        OptionsMenu.show(this, app, actions)
     }
 
     /** Tells the home screen behind us to refresh its app rows (only those: the movie rows didn't change). */

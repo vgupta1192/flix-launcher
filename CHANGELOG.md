@@ -1,3 +1,19 @@
+## [1.1.0] - 2026-10-29
+
+### Added
+- **Parental PIN** (Settings → Home screen → Parental): a hashed, salted code with a D-pad
+  keypad. An unlock lasts for the current visit to the launcher — leaving for any app re-arms it.
+- **App PIN lock**: long-press any app (home or All apps) → "Require PIN" — it asks for the PIN
+  before opening, from the home, All apps, or a Continue watching card.
+- **Kids mode**: a gated home that shows only apps tagged "Kid app" (long-press an app), hides
+  the Apps/Search tabs, the billboard and the catalogue rows, and asks for the PIN before
+  Settings, the All apps page or any non-kid app opens.
+- **Photo-frame idle**: photo wallpapers now idle into a picture frame too — the rotation keeps
+  going with the scene caption, like the aerial-video scenery; any keypress wakes it.
+- **Ambient tint**: the wallpaper's own colour washes gently into the bottom of the home screen
+  (and tints the video scenery's shading), changing with each photo. Setting: Wallpaper →
+  Picture → "Ambient tint" (on by default).
+
 ## [1.0.8] - 2026-10-29
 
 ### Added

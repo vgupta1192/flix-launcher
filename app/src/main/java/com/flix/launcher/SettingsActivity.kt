@@ -360,6 +360,27 @@ class SettingsActivity : Activity() {
         opt(0, "All apps", FlixSettings.ALL_APPS, R.drawable.ic_o_grid, "every app list")
         opt(0, "All apps", FlixSettings.ALL_APPS_TILE, R.drawable.ic_o_tile_plus, "every app button")
         act(0, "All apps", "Hidden apps", "Bring back apps you hid from All apps", R.drawable.ic_o_eye, "unhide restore show") { showHiddenApps() }
+        act(0, "Parental", "Set or change PIN", "Gates locked apps and Kids mode", R.drawable.ic_s_info, "pin parental password lock code") {
+            if (PinLock.hasPin(this@SettingsActivity))
+                PinLock.enter(this@SettingsActivity, "Current PIN") { ok ->
+                    if (ok) PinLock.setNew(this@SettingsActivity) { toast("PIN changed") } else toast("Wrong PIN")
+                }
+            else PinLock.setNew(this@SettingsActivity) { toast("PIN set") }
+        }
+        act(0, "Parental", "Kids mode",
+            if (PinLock.kidsMode(this@SettingsActivity)) "On — the home shows kid apps only" else "Off — a gated home with kid apps only",
+            R.drawable.ic_o_eye, "kids mode child safe restricted family") {
+            fun flip() {
+                val on = !PinLock.kidsMode(this@SettingsActivity)
+                PinLock.setKids(this@SettingsActivity, on)
+                applyToHome()
+                toast(if (on) "Kids mode on — long-press apps and choose Kid app to fill the home"
+                      else "Kids mode off")
+            }
+            if (PinLock.hasPin(this@SettingsActivity))
+                PinLock.enter(this@SettingsActivity, "Parental PIN") { ok -> if (ok) flip() }
+            else PinLock.setNew(this@SettingsActivity) { flip() }
+        }
         act(0, "All apps", "Reset favourites order", "Nuvio, TiviMate and YouTube first", R.drawable.ic_o_reset, "sort order arrange") {
             repo.resetOrder(); applyToHome(appsOnly = true); toast("Favourites order reset")
         }
@@ -401,6 +422,7 @@ class SettingsActivity : Activity() {
         opt(3, "Picture", FlixSettings.NIGHT, R.drawable.ic_o_moon, "night dim dark evening late hours sleep")
         opt(3, "Picture", FlixSettings.SHUFFLE, R.drawable.ic_o_shuffle, "random change")
         opt(3, "Picture", FlixSettings.SCENE_NAME, R.drawable.ic_o_pin, "caption place location title")
+        opt(3, "Picture", FlixSettings.AMBIENT, R.drawable.ic_o_glow, "ambient tint colour scene wash glow wallpaper")
         opt(3, "When the TV is idle", FlixSettings.IDLE, R.drawable.ic_o_moon, "screensaver sleep inactive timeout")
 
         // Backup & restore
