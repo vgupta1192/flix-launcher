@@ -31,6 +31,14 @@ object OptionsMenu {
         }
     }
 
+    /** A plain menu with no app art — launcher notices like What's new. */
+    fun show(context: Context, label: String, actions: List<Pair<String, () -> Unit>>) {
+        show(context, label, actions, artHeightDp = 64) { image ->
+            image.setImageResource(R.drawable.banner)
+            image.scaleType = ImageView.ScaleType.CENTER_CROP
+        }
+    }
+
     private fun show(context: Context, label: String, actions: List<Pair<String, () -> Unit>>, artHeightDp: Int, bindArt: (ImageView) -> Unit) {
         val dp = context.resources.displayMetrics.density
         val dialog = Dialog(context)

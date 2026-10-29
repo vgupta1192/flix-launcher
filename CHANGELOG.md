@@ -1,3 +1,16 @@
+## [1.0.8] - 2026-10-29
+
+### Added
+- **Wallpaper drift** (Ken Burns): wallpaper photos slowly pan and zoom while on screen, alternating
+  direction each photo. Setting: Wallpaper → Picture → "Wallpaper drift" (on by default).
+- **Night dimming**: from a chosen hour (22:00 / 23:00 / midnight) until 6:00 the scene dims
+  further and the clock softens — no more blinding wallpaper during late-night TV. Setting:
+  Wallpaper → Picture → "Night dimming" (off by default; pick your hour).
+- **What's new card**: after each update, the first home open shows what changed; also under
+  Settings → About → "What's new".
+- **Surprise me**: long-press the billboard's Play button to jump into a random title from your
+  rows (respects the current Movies/Shows tab and hidden titles).
+
 ## [1.0.7] - 2026-10-29
 
 ### Changed

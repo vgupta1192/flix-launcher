@@ -397,6 +397,8 @@ class SettingsActivity : Activity() {
             "Plain" to "background wallpaper plain dark black none",
         )) add(Entry(3, group, words, rows = { wallpaperRows(group) }))
         opt(3, "Picture", FlixSettings.DIM, R.drawable.ic_o_contrast, "dark bright brightness")
+        opt(3, "Picture", FlixSettings.KBURNS, R.drawable.ic_o_motion, "ken burns pan zoom drift wallpaper move")
+        opt(3, "Picture", FlixSettings.NIGHT, R.drawable.ic_o_moon, "night dim dark evening late hours sleep")
         opt(3, "Picture", FlixSettings.SHUFFLE, R.drawable.ic_o_shuffle, "random change")
         opt(3, "Picture", FlixSettings.SCENE_NAME, R.drawable.ic_o_pin, "caption place location title")
         opt(3, "When the TV is idle", FlixSettings.IDLE, R.drawable.ic_o_moon, "screensaver sleep inactive timeout")
@@ -410,6 +412,7 @@ class SettingsActivity : Activity() {
         add(Entry(4, null, "check update upgrade new release install version") { updateCard() })
 
         // About
+        act(4, "About", "What's new", "Recent updates to the launcher", R.drawable.ic_s_info, "changelog whats new release notes version") { WhatsNew.show(this@SettingsActivity) }
         add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
     }

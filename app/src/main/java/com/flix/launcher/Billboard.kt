@@ -69,6 +69,9 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     val play = button("▶   Play", primary = true)
     private val more = button("ⓘ   More info", primary = false)
 
+    /** Long-press Play opens a random title from the rows; set by [MovieRows]. */
+    var onSurprise: (() -> Unit)? = null
+
     val view: View = FrameLayout(activity).apply {
         clipToOutline = true
         outlineProvider = object : android.view.ViewOutlineProvider() {
@@ -127,6 +130,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
 
     init {
         play.setOnClickListener { featured?.let(onOpen) }
+        play.setOnLongClickListener { onSurprise?.invoke(); true }
         more.setOnClickListener { featured?.let(onOpen) }
         play.setOnKeyListener { _, code, e -> code == KeyEvent.KEYCODE_DPAD_LEFT && stepKey(e, -1) }
         more.setOnKeyListener { _, code, e -> code == KeyEvent.KEYCODE_DPAD_RIGHT && stepKey(e, 1) }

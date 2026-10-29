@@ -123,6 +123,7 @@ class MainActivity : Activity() {
             date.text = DateFormat.format("EEEE  ·  d MMMM", now)
             greeting.text = greetingFor(DateFormat.format("H", now).toString().toInt())
             sunArc.tick()
+            applyNight()
             main.postDelayed(this, 60_000 - System.currentTimeMillis() % 60_000 + 50)
         }
     }
@@ -260,6 +261,7 @@ class MainActivity : Activity() {
         main.post(tick)
 
         paintScrim(dimLevel())
+        applyNight()
         sceneTitle.visibility = if (isOn(FlixSettings.SCENE_NAME)) View.VISIBLE else View.INVISIBLE
         player?.shuffle = isOn(FlixSettings.SHUFFLE)
         hero.backdropEnabled = isOn(FlixSettings.BACKDROP)
@@ -515,10 +517,28 @@ class MainActivity : Activity() {
         )
     }
 
-    private fun dimLevel() = when (FlixSettings.get(this, FlixSettings.DIM)) {
-        "low" -> 0f
-        "high" -> 0.3f
-        else -> 0.12f
+    private fun dimLevel(): Float {
+        val base = when (FlixSettings.get(this, FlixSettings.DIM)) {
+            "low" -> 0f
+            "high" -> 0.3f
+            else -> 0.12f
+        }
+        val night = nightLevel()
+        return base + night * (1 - base)
+    }
+
+    /** Extra darkness while night dimming is active (from the set hour until 6:00). */
+    private fun nightLevel(): Float {
+        val from = FlixSettings.get(this, FlixSettings.NIGHT).toIntOrNull() ?: return 0f
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return if (hour >= from || hour < 6) 0.35f else 0f
+    }
+
+    /** Applies the night dim to what the scrim can't reach: the photo itself and the clock. */
+    private fun applyNight() {
+        val night = nightLevel()
+        if (!videoWallpaper()) imageView.animate().alpha(1f - night * 0.55f).setDuration(if (night > 0f) 1800L else 600L).start()
+        findViewById<View>(R.id.clock_group).animate().alpha(if (night > 0f) 0.82f else 1f).setDuration(1200).start()
     }
 
     // ---- Apps tab: every app in a grid right on the home screen, no separate page to load ----
@@ -645,6 +665,7 @@ class MainActivity : Activity() {
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
         Updater.maybeAuto(this)
+        WhatsNew.maybeShow(this)
     }
 
     override fun onPause() {
@@ -1093,6 +1114,7 @@ class MainActivity : Activity() {
             return
         }
         main.removeCallbacks(nextImage) // the photos shown while the clips were found stop here
+        drift?.cancel()
         veil.alpha = 1f
         videoView.visibility = View.VISIBLE
         player = SceneryPlayer(videoView, videos, isOn(FlixSettings.SHUFFLE),
@@ -1133,6 +1155,10 @@ class MainActivity : Activity() {
         showBuiltIn(index)
     }
 
+    /** Ken Burns drift animator for the wallpaper photo on screen (see [startDrift]). */
+    private var drift: android.animation.ValueAnimator? = null
+    private var driftFlip = false
+
     private fun present(bitmap: android.graphics.Bitmap, title: String?) {
         if (isDestroyed) return
         // Dip through the dark backdrop so one photo dissolves into the next.
@@ -1143,9 +1169,35 @@ class MainActivity : Activity() {
             veil.animate().alpha(0f).setDuration(1200).start()
         }.start()
         scrim.visibility = View.VISIBLE
+        startDrift()
         showSceneTitle(title)
         main.removeCallbacks(nextImage)
         if (started) main.postDelayed(nextImage, ROTATE_MS)
+    }
+
+    /** Ken Burns: the photo swells a little and drifts across while it's on screen. */
+    private fun startDrift() {
+        drift?.cancel()
+        imageView.scaleX = 1f; imageView.scaleY = 1f
+        imageView.translationX = 0f; imageView.translationY = 0f
+        if (!isOn(FlixSettings.KBURNS)) return
+        driftFlip = !driftFlip
+        val m = resources.displayMetrics
+        val dx = (if (driftFlip) 1f else -1f) * m.widthPixels * 0.02f
+        val dy = m.heightPixels * 0.015f
+        // A 6% zoom leaves room for the drift without ever showing an edge.
+        imageView.scaleX = 1.06f; imageView.scaleY = 1.06f
+        imageView.translationX = -dx / 2; imageView.translationY = -dy / 2
+        drift = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = ROTATE_MS
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                imageView.translationX = -dx / 2 + dx * f
+                imageView.translationY = -dy / 2 + dy * f
+            }
+            start()
+        }
     }
 
     private fun showBuiltIn(index: Int) {

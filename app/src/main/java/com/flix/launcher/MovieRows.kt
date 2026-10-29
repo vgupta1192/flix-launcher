@@ -35,6 +35,11 @@ class MovieRows(
     /** Netflix's billboard at the top of the rows: one featured title with Play and More info. */
     val billboard = Billboard(activity, container) { onOpen(it) }
 
+    init {
+        // Long-press Play on the billboard: jump into a random title from the rows below.
+        billboard.onSurprise = { randomTitle()?.let(onOpen) }
+    }
+
     val rows = mutableListOf<Row>()
     private val main = Handler(Looper.getMainLooper())
     private val dp = activity.resources.displayMetrics.density
@@ -215,6 +220,15 @@ class MovieRows(
     fun clearDetails() {
         detailed?.details?.visibility = View.GONE
         detailed = null
+    }
+
+    /** A random title from the loaded rows (excluding Top 10), for the billboard's surprise pick. */
+    fun randomTitle(): Catalog.Title? {
+        val hidden = Catalog.hiddenTitles(activity)
+        return rows.filter { it !== topRow }
+            .flatMap { it.all }
+            .filter { it.id !in hidden && it.id != SIGN_IN.id && (typeFilter == null || it.type == typeFilter) }
+            .randomOrNull()
     }
 
     /** Shows only movie or only series rows (the Movies and Shows tabs), or all of them. */
