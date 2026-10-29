@@ -1,3 +1,13 @@
+## [1.0.4] - 2026-10-29
+
+### Fixed
+- Updates never finished installing: after downloading, the system's own "Install this update?"
+  confirmation has to be launched by the app, and Flix only showed a toast — so nothing happened
+  after the download. The confirmation now opens as it should.
+- The "Install unknown apps" Settings page opened again on every check even after allowing it,
+  and before anything was downloaded. The permission is checked first now, and the page is
+  offered at most once every 30 minutes with a clear "press Check again" message.
+
 ## [1.0.3] - 2026-10-29
 
 ### Fixed

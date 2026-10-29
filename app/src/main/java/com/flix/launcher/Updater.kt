@@ -24,6 +24,7 @@ import java.net.URL
 object Updater {
     const val REPO = "vgupta1192/flix-launcher"
     private const val CHECK_MS = 12 * 60 * 60 * 1000L
+    private const val ASK_PERMISSION_AGAIN_MS = 30 * 60 * 1000L
 
     private fun prefs(context: Context) = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
 
@@ -92,6 +93,25 @@ object Updater {
 
     /** Downloads the release and hands it to the system installer (which asks one Yes). */
     private fun prepare(context: Context, r: Release) {
+        // Install permission first — no point downloading an update that can't be offered.
+        if (!context.packageManager.canRequestPackageInstalls()) {
+            val p = prefs(context)
+            val askedAt = p.getLong("asked_perm_at", 0)
+            p.edit().putString("result", "Allow \"Install unknown apps\" for Flix, then check again").apply()
+            // Open the Settings page once per attempt; re-opening it on every home open just
+            // trains everyone to ignore it. When the user checks again (or the next automatic
+            // check runs after granting), this branch is skipped and the update proceeds.
+            if (System.currentTimeMillis() - askedAt < ASK_PERMISSION_AGAIN_MS) return
+            p.edit().putLong("asked_perm_at", System.currentTimeMillis()).apply()
+            runOnUiThread(context) {
+                Toast.makeText(context, "Allow \"Install unknown apps\" for Flix, then press Check for updates again", Toast.LENGTH_LONG).show()
+                runCatching {
+                    context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }
+            return
+        }
         val apk = File(context.cacheDir, "update.apk")
         val ok = runCatching {
             val conn = URL(r.url).openConnection() as HttpURLConnection
@@ -107,21 +127,7 @@ object Updater {
         prefs(context).edit()
             .putString("result", if (ok) "v${r.version} ready to install" else "Download failed (v${r.version})")
             .apply()
-        if (!ok) return
-        val pm = context.packageManager
-        if (!pm.canRequestPackageInstalls()) {
-            // One-time: let the user allow installs from Flix, then the prompt works on its own.
-            prefs(context).edit().putLong("checked_at", 0).apply() // try again next home open
-            runOnUiThread(context) {
-                Toast.makeText(context, "Allow \"Install unknown apps\" for Flix to finish updates", Toast.LENGTH_LONG).show()
-                runCatching {
-                    context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-            }
-            return
-        }
-        install(context, apk)
+        if (ok) install(context, apk)
     }
 
     private fun install(context: Context, apk: File) {
