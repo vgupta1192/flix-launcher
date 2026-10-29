@@ -88,7 +88,7 @@ class NuvioLoginActivity : Activity() {
         generation++
         main.removeCallbacksAndMessages(null)
         body.removeAllViews()
-        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.nuvio(packageManager)) }.getOrNull()
         body.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -113,7 +113,9 @@ class NuvioLoginActivity : Activity() {
     // ---- Way 1: QR, renews itself ----
 
     private fun showQr() {
-        val gen = screen("Sign in to Nuvio", "Point your phone's camera at the code, then tap Approve")
+        val gen = screen("Sign in to Nuvio",
+            if (NuvioAccount.backendCustom(this)) "Your backend · ${NuvioAccount.api(this).removePrefix("https://")}\nPoint your phone's camera at the code, then tap Approve"
+            else "Point your phone's camera at the code, then tap Approve")
         val qr = ImageView(this).apply {
             background = GradientDrawable().apply { cornerRadius = 18 * dp; setColor(Color.WHITE) }
             setPadding(px(14), px(14), px(14), px(14))
@@ -132,7 +134,7 @@ class NuvioLoginActivity : Activity() {
             addView(caption("How it works"))
             addView(steps())
             addView(View(context), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(group(listOf(other)))
+            addView(group(listOf(other, backendButton())))
         }
         body.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -249,8 +251,43 @@ class NuvioLoginActivity : Activity() {
         password.setOnEditorActionListener { _, action, _ -> if (action == EditorInfo.IME_ACTION_DONE) { go(); true } else false }
         body.addView(submit, LinearLayout.LayoutParams(px(FORM_DP), px(50)).apply { topMargin = px(14) })
         body.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        body.addView(group(listOf(button("Use my phone instead", R.drawable.ic_o_phone) { showQr() })), LinearLayout.LayoutParams(px(FORM_DP), ViewGroup.LayoutParams.WRAP_CONTENT))
+        body.addView(group(listOf(button("Use my phone instead", R.drawable.ic_o_phone) { showQr() }, backendButton())), LinearLayout.LayoutParams(px(FORM_DP), ViewGroup.LayoutParams.WRAP_CONTENT))
         email.post { email.requestFocus() }
+    }
+
+    // ---- My backend ----
+
+    /** Where the Nuvio API lives: the user's own NuvioTV server instead of Nuvio's official service. */
+    private fun backendButton() = button("My backend", R.drawable.ic_o_layers,
+        if (NuvioAccount.backendCustom(this)) "Using ${NuvioAccount.api(this).removePrefix("https://")}"
+        else "Point Flix at your NuvioTV build's server"
+    ) { showBackend() }
+
+    private fun showBackend() {
+        screen("My backend", "Catalogues, addons and Continue watching come from this server")
+        val url = field("https://your-nuvio-server.example.com", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+        url.setText(if (NuvioAccount.backendCustom(this)) NuvioAccount.api(this) else "")
+        val error = text("", 13f).apply { setTextColor(0xFFF87171.toInt()) }
+        lateinit var save: View
+        fun pick(target: String?) {
+            NuvioAccount.setBackend(this, target)
+            changed()
+            // Signing in always starts over on a new backend.
+            showQr()
+        }
+        save = primary("Save and sign in") {
+            val v = url.text.toString().trim()
+            if (!v.startsWith("http")) error.text = "Enter your server's address, starting with https://"
+            else pick(v)
+        }
+        val official = button("Use Nuvio's official service", R.drawable.ic_o_phone, "api.nuvio.tv — the normal sign-in") { pick(null) }
+        body.addView(caption("Server address"))
+        body.addView(url, LinearLayout.LayoutParams(px(FORM_DP), px(52)).apply { topMargin = px(8) })
+        body.addView(error, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = px(8) })
+        body.addView(save, LinearLayout.LayoutParams(px(FORM_DP), px(50)).apply { topMargin = px(14) })
+        body.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        body.addView(group(listOf(official)), LinearLayout.LayoutParams(px(FORM_DP), ViewGroup.LayoutParams.WRAP_CONTENT))
+        url.post { url.requestFocus() }
     }
 
     // ---- After sign-in ----
@@ -335,6 +372,8 @@ class NuvioLoginActivity : Activity() {
         }
         body.addView(caption("Account"))
         body.addView(group(listOf(change, out)), LinearLayout.LayoutParams(px(FORM_DP), ViewGroup.LayoutParams.WRAP_CONTENT))
+        body.addView(caption("Server"))
+        body.addView(group(listOf(backendButton())), LinearLayout.LayoutParams(px(FORM_DP), ViewGroup.LayoutParams.WRAP_CONTENT))
         change.post { change.requestFocus() }
     }
 

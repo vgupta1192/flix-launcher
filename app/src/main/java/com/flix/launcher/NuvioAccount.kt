@@ -35,6 +35,33 @@ object NuvioAccount {
     private const val CONFIG_URL = "https://nuvio.tv/config.js"
     private const val CINEMETA = "https://v3-cinemeta.strem.io"
 
+    // ---- Backend ----
+
+    /**
+     * The base URL the Nuvio API lives on: the user's own NuvioTV backend when one is set
+     * (Settings → Nuvio → My backend), else Nuvio's official service. Catalogues, addons and
+     * Continue watching all come from here.
+     */
+    fun api(context: Context): String =
+        prefs(context).getString("backend", null)?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() } ?: API
+
+    /** True when the user pointed Flix at their own backend instead of Nuvio's official service. */
+    fun backendCustom(context: Context) = api(context) != API
+
+    /**
+     * Sets (null clears to official) the backend to talk to. Sign-in is per backend: switching
+     * signs the user out, so the next screen starts a fresh sign-in against the new backend.
+     */
+    fun setBackend(context: Context, url: String?) {
+        val clean = url?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }
+        val changed = clean != prefs(context).getString("backend", null)?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }
+        prefs(context).edit().putString("backend", clean).apply()
+        if (changed) {
+            if (isSignedIn(context)) signOut(context)
+            File(context.cacheDir, "continue.json").delete()
+        }
+    }
+
     /** A reply from Nuvio with an HTTP error status, so callers can tell "rejected" from "offline". */
     class HttpError(val code: Int, message: String) : IllegalStateException(message)
 
@@ -75,8 +102,8 @@ object NuvioAccount {
 
     /** Signs in with the email and password the user typed on the TV; they go straight to Nuvio and aren't kept. */
     fun passwordLogin(context: Context, email: String, password: String) {
-        val body = request(context, "$API/auth/v1/token?grant_type=password",
-            JSONObject().put("email", email.trim()).put("password", password).toString(), anonBearer = true)
+        val body = authPost(context, "/auth/v1/token?grant_type=password",
+            JSONObject().put("email", email.trim()).put("password", password))
         saveSession(context, JSONObject(body))
     }
 
@@ -89,8 +116,8 @@ object NuvioAccount {
 
     /** Swaps an approved code for a session and keeps only its tokens. */
     fun finishLogin(context: Context, login: Login) {
-        val body = request(context, "$API/functions/v1/tv-logins-exchange",
-            JSONObject().put("code", login.code).put("device_nonce", login.nonce).toString(), anonBearer = true)
+        val body = authPost(context, "/functions/v1/tv-logins-exchange",
+            JSONObject().put("code", login.code).put("device_nonce", login.nonce))
         saveSession(context, JSONObject(body).let { it.optJSONObject("session") ?: it })
     }
 
@@ -114,8 +141,8 @@ object NuvioAccount {
         val profile = profile(context) ?: return emptyList()
         val token = accessToken(context)
         val user = userId(token)?.let { "&user_id=eq.$it" }.orEmpty()
-        val body = request(context, "$API/rest/v1/addons?select=url,enabled,sort_order&profile_id=eq.${profile.index}$user&order=sort_order.asc",
-            null, bearer = token)
+        val body = request(context, "${api(context)}/rest/v1/addons?select=url,enabled,sort_order&profile_id=eq.${profile.index}$user&order=sort_order.asc",
+            null, bearer = token, apikey = !backendCustom(context))
         val rows = JSONArray(body)
         return (0 until rows.length()).map { rows.getJSONObject(it) }
             .filter { it.optBoolean("enabled", true) }
@@ -231,9 +258,20 @@ object NuvioAccount {
 
     // ---- Plumbing ----
 
+    /**
+     * Supabase-style auth calls (password sign-in, code exchange, token refresh). The official
+     * service wants its public anon key with them; the user's own backend usually doesn't.
+     */
+    private fun authPost(context: Context, path: String, body: JSONObject): String =
+        if (backendCustom(context)) request(context, "${api(context)}$path", body.toString(), apikey = false)
+        else request(context, "${api(context)}$path", body.toString(), anonBearer = true)
+
     private fun rpc(context: Context, name: String, body: JSONObject, anonymous: Boolean = false): String =
-        if (anonymous) request(context, "$API/rest/v1/rpc/$name", body.toString(), anonBearer = true)
-        else request(context, "$API/rest/v1/rpc/$name", body.toString(), bearer = accessToken(context))
+        if (backendCustom(context))
+            request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(),
+                bearer = if (anonymous) null else accessToken(context), apikey = false)
+        else if (anonymous) request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(), anonBearer = true)
+        else request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(), bearer = accessToken(context))
 
     /**
      * A current access token, refreshing it when it's about to expire. Synchronized because
@@ -247,8 +285,7 @@ object NuvioAccount {
         if (token != null && System.currentTimeMillis() / 1000 < p.getLong("expires_at", 0) - 60) return token
         val refresh = readToken(context, "refresh_token") ?: throw IllegalStateException("Not signed in to Nuvio")
         val body = try {
-            request(context, "$API/auth/v1/token?grant_type=refresh_token",
-                JSONObject().put("refresh_token", refresh).toString(), anonBearer = true)
+            authPost(context, "/auth/v1/token?grant_type=refresh_token", JSONObject().put("refresh_token", refresh))
         } catch (e: HttpError) {
             // Nuvio rejected the refresh token (revoked, expired, already used): the session is
             // gone, so show the user as signed out rather than an empty Continue watching row.

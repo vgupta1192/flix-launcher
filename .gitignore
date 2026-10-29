@@ -5,3 +5,4 @@ local.properties
 *.apk
 backups/
 keystore/
+flix-release.keystore

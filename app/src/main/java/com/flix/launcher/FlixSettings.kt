@@ -75,6 +75,10 @@ object FlixSettings {
         summary = "How long a poster stays selected before its trailer plays")
     val TRAILER_SOUND = toggle("trailer_sound_v2", "Trailer sound", summary = "Off keeps trailers silent")
 
+    // Updates
+    val AUTO_UPDATE = toggle("auto_update", "Update automatically",
+        summary = "Checks GitHub releases when home opens (at most every 12 h) and offers to install")
+
 
     private fun prefs(context: Context) = context.getSharedPreferences("flix_settings", Context.MODE_PRIVATE)
 

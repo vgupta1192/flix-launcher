@@ -285,7 +285,7 @@ class MainActivity : Activity() {
             FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
-        packageManager.getLaunchIntentForPackage(NUVIO) != null,
+        packageManager.getLaunchIntentForPackage(nuvio(packageManager)) != null,
     )
 
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
@@ -451,7 +451,7 @@ class MainActivity : Activity() {
             overridePendingTransition(0, 0)
             return
         }
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(NUVIO)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(nuvio(packageManager))
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
@@ -626,6 +626,7 @@ class MainActivity : Activity() {
         movieRows.refreshContinue()
         player?.play()
         if (idle) setIdle(false) else scheduleIdle()
+        Updater.maybeAuto(this)
     }
 
     override fun onPause() {
@@ -1155,7 +1156,15 @@ class MainActivity : Activity() {
     }
 
     companion object {
-        const val NUVIO = "com.nuvio.tv"
+        const val NUVIO_OFFICIAL = "com.nuvio.tv"
+        /** Nuvio builds to prefer, most personal first: the user's own NuvioTV build (their backend,
+         *  their login) before the official Play Store app. */
+        private val NUVIO_BUILDS = listOf("com.nuvio.tv.jellyfintv", NUVIO_OFFICIAL)
+
+        /** The installed Nuvio to open titles in — the user's build when present, else the official app. */
+        fun nuvio(pm: android.content.pm.PackageManager): String =
+            NUVIO_BUILDS.firstOrNull { pm.getLaunchIntentForPackage(it) != null } ?: NUVIO_OFFICIAL
+
         /** How long each wallpaper photo stays up. */
         const val ROTATE_MS = 60_000L
         private const val GRID_COLUMNS = 7

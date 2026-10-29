@@ -404,6 +404,10 @@ class SettingsActivity : Activity() {
         act(4, "Backup & restore", "Back up settings", backupSummary(), R.drawable.ic_o_layers, "backup save export copy keep") { backUp() }
         act(4, "Backup & restore", "Restore settings", "Bring back settings from a backup", R.drawable.ic_o_reset, "restore import load recover backup") { pickBackup() }
 
+        // Updates
+        opt(4, "Updates", FlixSettings.AUTO_UPDATE, R.drawable.ic_o_clock, "automatic update github release new version install")
+        add(Entry(4, null, "check update upgrade new release install version") { updateCard() })
+
         // About
         add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })
@@ -683,7 +687,7 @@ class SettingsActivity : Activity() {
     private fun nuvioCard(): View {
         val signedIn = NuvioAccount.isSignedIn(this)
         val profile = NuvioAccount.profile(this)?.name
-        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.NUVIO) }.getOrNull()
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.nuvio(packageManager)) }.getOrNull()
         val art = if (logo != null) ImageView(this).apply {
             setImageDrawable(logo)
             background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(0xFF0B0F1A.toInt()) }
@@ -697,6 +701,19 @@ class SettingsActivity : Activity() {
             badge = if (signedIn) "Connected" else "Sign in",
             badgeColor = if (signedIn) 0xFF16A34A.toInt() else RED,
         ) { open(NuvioLoginActivity::class.java) }
+    }
+
+    /** Update check: current version, last result, and a tap to check GitHub releases now. */
+    private fun updateCard(): View {
+        val ready = Updater.lastResult(this)
+        val (tile, _) = iconTile(R.drawable.ic_s_info)
+        return heroRow(
+            art = tile,
+            title = "Check for updates",
+            subtitle = "Version ${version()} · " + (ready ?: "Also checks by itself when home opens"),
+            badge = "Check",
+            badgeColor = RED,
+        ) { Updater.checkNow(this) }
     }
 
     private fun rowsCard(): View {

@@ -2,14 +2,18 @@ package com.flix.launcher
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
- * Google TV sends the Home button straight to its own launcher regardless of
- * the HOME role, so this service catches the key and opens Flix instead. When
- * the key never reaches us (some remotes deliver Home below the accessibility
- * layer), the stock home screen coming to the front is caught instead.
+ * Google TV sends the Home button straight to its own launcher regardless of the HOME role.
+ * This service watches for the stock home screen coming to the front — on a press, after a
+ * wake-up, or following an update — and brings Flix back over it.
+ *
+ * It deliberately does NOT filter key events: with flagRequestFilterKeyEvents the service
+ * intercepts every key on the TV and Android's key auto-repeat silently stops working
+ * (holding the volume button changed the volume once instead of continuously, in every app).
+ * The cost is that a Home press from another app may flash the stock home for a moment
+ * before the window watcher replaces it with Flix.
  */
 class HomeKeyService : AccessibilityService() {
     override fun onServiceConnected() {
@@ -17,7 +21,7 @@ class HomeKeyService : AccessibilityService() {
         running = true
         HomeGuard.setWanted(this, true)
         // After an update or a reboot the stock home is already in front, so no window change
-        // follows and Home presses go to it unseen: bring Flix back straight away.
+        // follows: bring Flix back straight away.
         if (rootInActiveWindow?.packageName == STOCK_LAUNCHER) openFlix()
     }
 
@@ -35,12 +39,6 @@ class HomeKeyService : AccessibilityService() {
     override fun onDestroy() {
         running = false
         super.onDestroy()
-    }
-
-    override fun onKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
-        if (event.action == KeyEvent.ACTION_UP) openFlix()
-        return true
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

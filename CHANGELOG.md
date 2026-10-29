@@ -4,6 +4,22 @@ All notable changes to Flix Launcher are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] - 2026-10-29
+
+### Fixed
+- Holding the remote's volume button repeats again in every app: the Home-key service no longer filters
+  all key events (an accessibility service that filters keys silently disables Android's key repeat, so
+  holding volume changed it once instead of continuously). The Home button is caught by watching for the
+  stock home screen instead — a press from another app may flash it for a moment before Flix comes back.
+- Titles open in your own NuvioTV build (`com.nuvio.tv.jellyfintv`) when it's installed, instead of only
+  ever the official Nuvio app — everywhere Nuvio is opened, gated or shown (rows, All apps, Settings).
+
+### Added
+- **My backend**: point Flix at your own NuvioTV server (Settings → Nuvio → My backend). Catalogues,
+  addons and Continue watching are then fetched from your backend instead of Nuvio's official service,
+  and sign-in happens against it. Switching backends signs you out once; "Use Nuvio's official service"
+  switches back.
+
 ## [1.0.1] - 2026-10-27
 
 ### Added
