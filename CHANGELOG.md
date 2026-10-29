@@ -1,3 +1,11 @@
+## [1.1.3] - 2026-10-30
+
+### Fixed
+- Kids mode setup is no longer a dead end: with no kid apps tagged yet, the kids home shows the
+  **All apps tile** — open it, long-press an app and choose "Kid app", and the kids home fills as
+  you tag. Once at least one app is tagged, the tile disappears and the home locks behind the PIN.
+  Kid-tagged apps now appear on the kids home even if they aren't favourites.
+
 ## [1.1.2] - 2026-10-30
 
 ### Changed

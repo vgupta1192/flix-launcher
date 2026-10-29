@@ -9,6 +9,7 @@ import android.content.Context
  */
 object WhatsNew {
     private val notes = listOf(
+        "1.1.3" to "Kids mode setup: the empty kids home shows All apps so apps can be tagged",
         "1.1.2" to "Continue watching: app cards now lead the row with their real icons",
         "1.1.0" to "Parental PIN with app locks and Kids mode, photo-frame idle and ambient tint",
         "1.0.8" to "Wallpaper drift, night dimming, surprise picks on the billboard and this card",

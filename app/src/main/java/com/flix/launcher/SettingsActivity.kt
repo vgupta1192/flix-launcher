@@ -374,7 +374,7 @@ class SettingsActivity : Activity() {
                 val on = !PinLock.kidsMode(this@SettingsActivity)
                 PinLock.setKids(this@SettingsActivity, on)
                 applyToHome()
-                toast(if (on) "Kids mode on — long-press apps and choose Kid app to fill the home"
+                toast(if (on) "Kids mode on — open All apps on the home, long-press an app and choose Kid app"
                       else "Kids mode off")
             }
             if (PinLock.hasPin(this@SettingsActivity))

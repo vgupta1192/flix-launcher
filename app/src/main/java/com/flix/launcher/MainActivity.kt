@@ -899,8 +899,16 @@ class MainActivity : Activity() {
         val byPackage = allApps.associateBy { it.packageName }
         val kids = PinLock.kidsMode(this)
         val kidSet = PinLock.kidApps(this)
-        val favorites = repo.favorites.let { favs -> if (kids) favs.filter { it in kidSet } else favs }
-        val tile = if (isOn(FlixSettings.ALL_APPS_TILE) && !kids) listOf(repo.allAppsTile()) else emptyList()
+        // Kids home: kid-tagged apps (favourites first), and while nothing is tagged yet the
+        // All apps tile stays as the way in — long-press an app there and choose "Kid app".
+        val favorites = if (kids) repo.favorites.filter { it in kidSet } + kidSet.filter { it !in repo.favorites }
+                       else repo.favorites
+        val tile = when {
+            kids && kidSet.isEmpty() -> listOf(repo.allAppsTile())
+            kids -> emptyList()
+            isOn(FlixSettings.ALL_APPS_TILE) -> listOf(repo.allAppsTile())
+            else -> emptyList()
+        }
         favoritesAdapter.items = favorites.mapNotNull { byPackage[it] } + tile
         appsAdapter.items = if (kids) emptyList() else allApps.filter { it.packageName !in favorites }
         if (::appsGrid.isInitialized && appsGrid.visibility == View.VISIBLE) appsGridAdapter.items = allApps
