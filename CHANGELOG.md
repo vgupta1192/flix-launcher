@@ -1,3 +1,11 @@
+## [1.1.4] - 2026-10-30
+
+### Added
+- **Self-healing home default**: when a Google TV app update (or a firmware reset) takes the
+  home role back, Flix notices on the next open and shows the system's own "Set Flix Launcher as
+  your home app?" dialog — one press restores it, at most once a day until fixed. Also visible
+  under Settings → About → "Default home app".
+
 ## [1.1.3] - 2026-10-30
 
 ### Fixed

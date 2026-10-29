@@ -434,6 +434,16 @@ class SettingsActivity : Activity() {
         add(Entry(4, null, "check update upgrade new release install version") { updateCard() })
 
         // About
+        act(4, "About", "Default home app",
+            if (getSystemService(android.app.role.RoleManager::class.java)
+                    ?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true)
+                "Flix Launcher is the home app — after a Google TV update, opening Flix restores this"
+            else "Google TV is the home app — tap to make Flix the default",
+            R.drawable.ic_o_tv, "default home app launcher permanent google tv") {
+            getSystemService(android.app.role.RoleManager::class.java)?.let { rm ->
+                runCatching { startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 1) }
+            }
+        }
         act(4, "About", "What's new", "Recent updates to the launcher", R.drawable.ic_s_info, "changelog whats new release notes version") { WhatsNew.show(this@SettingsActivity) }
         add(Entry(4, null, "about version app flix launcher") { infoRow("Flix Launcher", "Version ${version()}", R.drawable.ic_s_info) })
         add(Entry(4, null, "about tv device model") { infoRow("This TV", "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}", R.drawable.ic_o_tv) })

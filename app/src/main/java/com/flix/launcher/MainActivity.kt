@@ -688,6 +688,24 @@ class MainActivity : Activity() {
         if (idle) setIdle(false) else scheduleIdle()
         Updater.maybeAuto(this)
         WhatsNew.maybeShow(this)
+        maybeClaimHome()
+    }
+
+    /**
+     * Updates to the stock launcher (and firmware resets) can take the home role back. When
+     * we're not the home any more, ask — the system's own one-press dialog — at most once a
+     * day, so the default repairs itself after every Google TV app update.
+     */
+    private fun maybeClaimHome() {
+        if (android.os.Build.VERSION.SDK_INT < 29) return
+        val rm = getSystemService(android.app.role.RoleManager::class.java) ?: return
+        if (rm.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) return
+        val p = getSharedPreferences("flix", MODE_PRIVATE)
+        if (System.currentTimeMillis() - p.getLong("home_role_asked_at", 0) < 24 * 3600_000L) return
+        p.edit().putLong("home_role_asked_at", System.currentTimeMillis()).apply()
+        runCatching {
+            startActivityForResult(rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 1)
+        }
     }
 
     override fun onPause() {
