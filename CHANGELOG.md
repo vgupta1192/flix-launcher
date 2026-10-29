@@ -1,3 +1,13 @@
+## [1.0.6] - 2026-10-29
+
+### Added
+- Continue watching now includes **resume cards for your other apps**, not just Nuvio: the video
+  apps opened in the last week (YouTube, Prime Video, JioHotstar, Sony LIV, MovieBoxTV and any app
+  that declares itself video) appear most-recent-first next to Nuvio's titles, and OK opens the app.
+  Recency comes from the launcher's own launch notes plus Android's usage log (Usage access, granted
+  once with adb — covers voice and in-app launches). A setting, "Apps in Continue watching", turns
+  the cards off.
+
 ## [1.0.5] - 2026-10-29
 
 ### Added

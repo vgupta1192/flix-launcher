@@ -281,8 +281,8 @@ class MainActivity : Activity() {
     private var rowsBuiltFrom: List<Any>? = null
 
     private fun rowsSnapshot(): List<Any> = listOf(
-        listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.TOP_TEN,
-            FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
+        listOf(FlixSettings.SUGGESTIONS, FlixSettings.BILLBOARD, FlixSettings.CONTINUE_WATCHING, FlixSettings.CONTINUE_APPS,
+            FlixSettings.TOP_TEN, FlixSettings.GENRE, FlixSettings.POSTER_SIZE, FlixSettings.MOTION).map { FlixSettings.get(this, it) },
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
         packageManager.getLaunchIntentForPackage(nuvio(packageManager)) != null,
@@ -451,6 +451,7 @@ class MainActivity : Activity() {
             overridePendingTransition(0, 0)
             return
         }
+        if (title.id.startsWith("app:")) return openResumeApp(title.id.removePrefix("app:"), title.name)
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(nuvio(packageManager))
         if (intent.resolveActivity(packageManager) == null) {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
@@ -470,8 +471,25 @@ class MainActivity : Activity() {
         }.onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
     }
 
+    /** A Continue watching card for an app: opening it is the resume (see [Resumes]). */
+    private fun openResumeApp(pkg: String, label: String) {
+        val intent = packageManager.getLeanbackLaunchIntentForPackage(pkg)
+            ?: packageManager.getLaunchIntentForPackage(pkg)
+        if (intent == null) {
+            Toast.makeText(this, "$label isn't installed anymore", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Resumes.note(this, pkg)
+        trailer.stop()
+        main.removeCallbacks(pauseForBackdrop)
+        player?.pause()
+        open(intent)
+    }
+
     private fun showTitleMenu(title: Catalog.Title) {
         if (title.id == MovieRows.SIGN_IN.id) return openInNuvio(title)
+        if (title.id.startsWith("app:"))
+            return OptionsMenu.show(this, title, listOf("Open ${title.name}" to { openInNuvio(title) }))
         OptionsMenu.show(this, title, listOf(
             "Open in Nuvio" to { openInNuvio(title) },
             "Hide this title" to {
@@ -933,6 +951,7 @@ class MainActivity : Activity() {
      * home screen eases back; coming home reverses it (see [playReturn]).
      */
     private fun open(intent: Intent) {
+        Resumes.note(this, intent.component?.packageName)
         val source = currentFocus
         val options = source?.let {
             android.app.ActivityOptions.makeScaleUpAnimation(it, 0, 0, it.width, it.height).toBundle()

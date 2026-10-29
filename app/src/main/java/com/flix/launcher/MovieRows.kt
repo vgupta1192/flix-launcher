@@ -59,19 +59,15 @@ class MovieRows(
             else -> 128 to 192
         }
         if (FlixSettings.isOn(activity, FlixSettings.BILLBOARD)) container.addView(billboard.view)
-        if (!NuvioAccount.isSignedIn(activity) && FlixSettings.isOn(activity, FlixSettings.CONTINUE_WATCHING) &&
-            activity.packageManager.getLaunchIntentForPackage(MainActivity.nuvio(activity.packageManager)) != null) {
-            val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
-            rows += row
-            container.addView(row.view)
-            show(row, listOf(SIGN_IN))
-        }
-        if (NuvioAccount.isSignedIn(activity) && FlixSettings.isOn(activity, FlixSettings.CONTINUE_WATCHING)) {
-            val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
-            rows += row
-            container.addView(row.view)
-            row.view.visibility = View.GONE // shown once progress arrives
-            refreshContinue(force = true)
+        if (FlixSettings.isOn(activity, FlixSettings.CONTINUE_WATCHING)) {
+            val hasNuvio = activity.packageManager.getLaunchIntentForPackage(MainActivity.nuvio(activity.packageManager)) != null
+            if (NuvioAccount.isSignedIn(activity) || hasNuvio) {
+                val row = makeRow(CONTINUE, (w * dp).roundToInt(), (h * dp).roundToInt(), null)
+                rows += row
+                container.addView(row.view)
+                row.view.visibility = View.GONE // shown once progress arrives
+                refreshContinue(force = true)
+            }
         }
         // Top 10: by default ranked from the family's own first movie row (their language),
         // or Cinemeta's worldwide chart, or not at all.
@@ -101,15 +97,24 @@ class MovieRows(
 
     private var lastContinueAt = 0L
 
-    /** Re-reads Nuvio watch progress, at most every couple of minutes. */
+    /** Re-reads Nuvio watch progress and gathers the app resume cards, at most every couple of minutes. */
     fun refreshContinue(force: Boolean = false) {
         val row = rows.firstOrNull { it.source === CONTINUE } ?: return
         if (!force && System.currentTimeMillis() - lastContinueAt < 120_000) return
         lastContinueAt = System.currentTimeMillis()
         net.execute {
-            val titles = runCatching { NuvioAccount.continueWatching(activity) }
-                .onFailure { android.util.Log.w("Flix", "Continue watching failed", it) }
-                .getOrNull() ?: return@execute
+            val signedIn = NuvioAccount.isSignedIn(activity)
+            val nuvio = if (signedIn)
+                runCatching { NuvioAccount.continueWatching(activity) }
+                    .onFailure { android.util.Log.w("Flix", "Continue watching failed", it) }.getOrNull()
+                else null
+            val apps = if (FlixSettings.isOn(activity, FlixSettings.CONTINUE_APPS)) Resumes.cards(activity) else emptyList()
+            val titles = buildList {
+                if (!signedIn) add(SIGN_IN)
+                if (nuvio != null) addAll(nuvio)
+                addAll(apps)
+            }
+            if (titles.isEmpty()) return@execute
             main.post { if (row in rows) show(row, titles) }
         }
     }

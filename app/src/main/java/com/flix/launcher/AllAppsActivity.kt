@@ -294,6 +294,7 @@ class AllAppsActivity : Activity() {
     // ---- Actions ----
 
     private fun launch(app: AppEntry) {
+        Resumes.note(this, app.launchIntent.component?.packageName)
         runCatching { startActivity(app.launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
             .onFailure { Toast.makeText(this, "Couldn't open that", Toast.LENGTH_SHORT).show() }
     }
