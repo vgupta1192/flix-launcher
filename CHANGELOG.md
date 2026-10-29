@@ -4,6 +4,9 @@
 - Signing in to a self-hosted backend failed with "No API key found in request": every Nuvio
   backend — official or self-hosted — needs its public anon key sent along. Flix now reads the
   key from the backend's own config.js (per backend) and uses it for all calls.
+- The QR code / phone sign-in link pointed at Nuvio's official login page, approving into the
+  wrong (official) account. With a custom backend set, the link now opens the backend's own
+  /tv-login page, so the approval signs in to YOUR backend.
 
 # Changelog
 
