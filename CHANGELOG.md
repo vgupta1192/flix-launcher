@@ -1,3 +1,10 @@
+## [1.0.3] - 2026-10-29
+
+### Fixed
+- Signing in to a self-hosted backend failed with "No API key found in request": every Nuvio
+  backend — official or self-hosted — needs its public anon key sent along. Flix now reads the
+  key from the backend's own config.js (per backend) and uses it for all calls.
+
 # Changelog
 
 All notable changes to Flix Launcher are listed here. The format follows

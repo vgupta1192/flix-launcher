@@ -32,7 +32,6 @@ object NuvioAccount {
     data class Profile(val index: Int, val name: String, val color: Int = 0xFF4F7CFF.toInt())
 
     private const val API = "https://api.nuvio.tv"
-    private const val CONFIG_URL = "https://nuvio.tv/config.js"
     private const val CINEMETA = "https://v3-cinemeta.strem.io"
 
     // ---- Backend ----
@@ -57,6 +56,8 @@ object NuvioAccount {
         val changed = clean != prefs(context).getString("backend", null)?.trim()?.trimEnd('/')?.takeIf { it.isNotBlank() }
         prefs(context).edit().putString("backend", clean).apply()
         if (changed) {
+            // The anon key is per backend: drop the cache so the next call reads the new one.
+            prefs(context).edit().remove("anon_key").remove("anon_key_backend").apply()
             if (isSignedIn(context)) signOut(context)
             File(context.cacheDir, "continue.json").delete()
         }
@@ -91,7 +92,9 @@ object NuvioAccount {
         val nonce = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
         val rows = JSONArray(rpc(context, "start_tv_login_session", JSONObject()
             .put("p_device_nonce", nonce)
-            .put("p_redirect_base_url", "https://nuvio.tv/tv-login")
+            // Approvals must land in THIS backend's database, so the phone opens the
+            // backend's own login page — the official one would approve the wrong account.
+            .put("p_redirect_base_url", if (backendCustom(context)) api(context) + "/tv-login" else "https://nuvio.tv/tv-login")
             .put("p_device_name", "Flix Launcher on ${android.os.Build.MODEL}"), anonymous = true))
         val row = rows.getJSONObject(0)
         val expires = runCatching {
@@ -142,7 +145,7 @@ object NuvioAccount {
         val token = accessToken(context)
         val user = userId(token)?.let { "&user_id=eq.$it" }.orEmpty()
         val body = request(context, "${api(context)}/rest/v1/addons?select=url,enabled,sort_order&profile_id=eq.${profile.index}$user&order=sort_order.asc",
-            null, bearer = token, apikey = !backendCustom(context))
+            null, bearer = token)
         val rows = JSONArray(body)
         return (0 until rows.length()).map { rows.getJSONObject(it) }
             .filter { it.optBoolean("enabled", true) }
@@ -259,18 +262,15 @@ object NuvioAccount {
     // ---- Plumbing ----
 
     /**
-     * Supabase-style auth calls (password sign-in, code exchange, token refresh). The official
-     * service wants its public anon key with them; the user's own backend usually doesn't.
+     * Supabase-style auth calls (password sign-in, code exchange, token refresh). Every backend —
+     * official or self-hosted — wants its public anon key with them (self-hosted Supabase answers
+     * "No API key found in request" without it).
      */
     private fun authPost(context: Context, path: String, body: JSONObject): String =
-        if (backendCustom(context)) request(context, "${api(context)}$path", body.toString(), apikey = false)
-        else request(context, "${api(context)}$path", body.toString(), anonBearer = true)
+        request(context, "${api(context)}$path", body.toString(), anonBearer = true)
 
     private fun rpc(context: Context, name: String, body: JSONObject, anonymous: Boolean = false): String =
-        if (backendCustom(context))
-            request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(),
-                bearer = if (anonymous) null else accessToken(context), apikey = false)
-        else if (anonymous) request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(), anonBearer = true)
+        if (anonymous) request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(), anonBearer = true)
         else request(context, "${api(context)}/rest/v1/rpc/$name", body.toString(), bearer = accessToken(context))
 
     /**
@@ -356,14 +356,19 @@ object NuvioAccount {
         }
     }
 
-    /** Nuvio's public client key, read from its website config so it stays current. */
+    /**
+     * The backend's public anon key, read from its config.js so it stays current. Works for the
+     * official service (nuvio.tv/config.js) and for self-hosted backends the same way — they all
+     * publish `supabaseAnonKey` there. Cached per backend; switching backends re-reads it.
+     */
     private fun anonKey(context: Context): String {
         val p = prefs(context)
-        p.getString("anon_key", null)?.let { return it }
-        val js = request(context, CONFIG_URL, null, bearer = null, apikey = false)
+        val base = api(context)
+        if (p.getString("anon_key_backend", null) == base) p.getString("anon_key", null)?.let { return it }
+        val js = request(context, "$base/config.js", null, bearer = null, apikey = false)
         val key = Regex("supabaseAnonKey[\"']?\\s*[:=]\\s*[\"']([^\"']+)").find(js)?.groupValues?.get(1)
-            ?: throw IllegalStateException("Couldn't read Nuvio's sign-in settings")
-        p.edit().putString("anon_key", key).apply()
+            ?: throw IllegalStateException("Couldn't read the Nuvio sign-in settings from $base")
+        p.edit().putString("anon_key", key).putString("anon_key_backend", base).apply()
         return key
     }
 
