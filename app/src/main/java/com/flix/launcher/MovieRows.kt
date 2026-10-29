@@ -118,8 +118,8 @@ class MovieRows(
             val apps = if (FlixSettings.isOn(activity, FlixSettings.CONTINUE_APPS)) Resumes.cards(activity) else emptyList()
             val titles = buildList {
                 if (!signedIn) add(SIGN_IN)
+                addAll(apps) // the apps opened most recently lead the row
                 if (nuvio != null) addAll(nuvio)
-                addAll(apps)
             }
             if (titles.isEmpty()) return@execute
             main.post { if (row in rows) show(row, titles) }

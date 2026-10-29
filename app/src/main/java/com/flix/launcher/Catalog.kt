@@ -31,6 +31,9 @@ object Catalog {
         /** For Continue watching: how far through it the user is (0–1), and which episode. */
         val progress: Float? = null,
         val episodeLabel: String? = null,
+        /** App resume cards (ids "app:<pkg>"): the app's own icon and accent colour, drawn locally. */
+        val icon: android.graphics.drawable.Drawable? = null,
+        val accent: Int = 0,
     ) {
         /** Opens the title's page in Nuvio, ready to pick a stream and play. */
         val nuvioUri: String

@@ -3,7 +3,6 @@ package com.flix.launcher
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.ApplicationInfo
 
 /**
@@ -17,7 +16,6 @@ import android.content.pm.ApplicationInfo
  */
 object Resumes {
     private const val WINDOW_MS = 7 * 24 * 3600_000L
-    private const val SMARTTUBE = "org.smarttube.stable"
 
     private fun prefs(context: Context) = context.getSharedPreferences("flix_resumes", Context.MODE_PRIVATE)
 
@@ -53,27 +51,23 @@ object Resumes {
     private fun isVideo(pkg: String, category: Int) =
         category == ApplicationInfo.CATEGORY_VIDEO || HINTS.any(pkg::contains)
 
-    /** Resume cards for video apps opened in the last week, most recent first. */
-    fun cards(context: Context, limit: Int = 6): List<Catalog.Title> {
-        val pm = context.packageManager
+    /** Resume cards for video apps opened in the last week, most recent first, each with the app's own icon. */
+    fun cards(context: Context, limit: Int = 4): List<Catalog.Title> {
         val last = lastUsed(context)
         val cutoff = System.currentTimeMillis() - WINDOW_MS
-        val hidden = AppRepository(context).hidden
         val skip = setOf("com.nuvio.tv", "com.nuvio.tv.jellyfintv")
-        val seen = HashSet<String>()
-        val found = mutableListOf<Catalog.Title>()
-        for (category in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)) {
-            for (info in pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
-                val pkg = info.activityInfo.packageName
-                if (!seen.add(pkg)) continue
-                val used = last[pkg] ?: continue
-                if (used < cutoff || pkg in hidden || pkg in skip ||
-                    !isVideo(pkg, info.activityInfo.applicationInfo.category)) continue
-                val label = if (pkg == SMARTTUBE) "YouTube" else info.loadLabel(pm).toString()
-                found += Catalog.Title(
-                    id = "app:$pkg",
+        // loadApps already excludes hidden apps, the launcher itself and unlaunchable packages,
+        // and hands back the compacted icon and accent each tile uses.
+        return AppRepository(context).loadApps()
+            .filter { app -> (last[app.packageName] ?: 0L) > cutoff && app.packageName !in skip &&
+                isVideo(app.packageName, app.category) }
+            .sortedByDescending { last[it.packageName] ?: 0L }
+            .take(limit)
+            .map { app ->
+                Catalog.Title(
+                    id = "app:${app.packageName}",
                     type = "movie",
-                    name = label,
+                    name = app.label,
                     poster = null,
                     backdrop = null,
                     logo = null,
@@ -81,10 +75,10 @@ object Resumes {
                     rating = null,
                     runtime = null,
                     genres = emptyList(),
-                    description = "Pick up where you left off in $label",
+                    description = "Pick up where you left off in ${app.label}",
+                    icon = app.icon,
+                    accent = app.accent,
                 )
             }
-        }
-        return found.sortedByDescending { last[it.id.removePrefix("app:")] ?: 0L }.take(limit)
     }
 }

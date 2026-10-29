@@ -1,3 +1,12 @@
+## [1.1.2] - 2026-10-30
+
+### Changed
+- Continue watching: the app resume cards now come **first** (most recently opened first) instead
+  of hiding after every Nuvio title, and each card shows the **app's real icon** on its own
+  coloured plate instead of generated art. Per-title progress from streaming apps (Netflix, Prime,
+  YouTube…) remains impossible for any launcher — Android keeps it behind a signature permission;
+  the card opens the app, which resumes where it left off.
+
 ## [1.1.1] - 2026-10-29
 
 ### Fixed

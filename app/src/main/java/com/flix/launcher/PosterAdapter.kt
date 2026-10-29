@@ -341,9 +341,15 @@ class PosterAdapter(
             }
             fallback.text = title.name
             // The name underneath is only for posters that don't exist; drawing it under a real
-            // poster costs the GPU a second layer of pixels for every card.
-            fallback.visibility = if (title.poster == null) View.VISIBLE else View.GONE
+            // poster costs the GPU a second layer of pixels for every card. App resume cards
+            // show the app's own icon fitted on its coloured plate instead of a name.
+            val iconCard = title.icon != null
+            fallback.visibility = if (title.poster == null && !iconCard) View.VISIBLE else View.GONE
             Images.into(poster, title.poster, widthPx)
+            if (iconCard) {
+                poster.scaleType = ImageView.ScaleType.FIT_CENTER
+                poster.setImageDrawable(title.icon)
+            } else poster.scaleType = ImageView.ScaleType.CENTER_CROP
             // Generated cover art only for titles with no poster; drawing it under a real
             // poster would double the pixels the GPU fills.
             itemView.background = if (title.poster == null) CoverArt(title.name) else null
