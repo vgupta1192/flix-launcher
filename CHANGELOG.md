@@ -1,3 +1,11 @@
+## [1.0.5] - 2026-10-29
+
+### Added
+- The updater logs every step to logcat under `FlixUpdater` (`adb logcat -s FlixUpdater` shows a
+  whole update end to end): when auto/manual checks run and what they find, download size, the
+  install-permission state the app sees, the install session commit and the installer's status
+  callback — so a stalled update can be diagnosed from the Mac instead of guessed at.
+
 ## [1.0.4] - 2026-10-29
 
 ### Fixed

@@ -15,14 +15,17 @@ import android.widget.Toast
 class InstallReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        android.util.Log.i("FlixUpdater", "installer status $status")
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm: Intent? = if (Build.VERSION.SDK_INT >= 33)
                     intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
                 else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
+                if (confirm == null) android.util.Log.i("FlixUpdater", "no confirmation intent attached to the broadcast")
                 if (confirm != null) runCatching {
                     context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }.onFailure {
+                    android.util.Log.i("FlixUpdater", "couldn't open the confirmation: ${it.message}")
                     Toast.makeText(context, "Update needs confirmation: ${it.message}", Toast.LENGTH_LONG).show()
                 }
             }

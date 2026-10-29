@@ -28,6 +28,9 @@ object Updater {
 
     private fun prefs(context: Context) = context.getSharedPreferences("updater", Context.MODE_PRIVATE)
 
+    /** Progress goes to logcat — `adb logcat -s FlixUpdater` shows an update end to end. */
+    private fun log(msg: String) = android.util.Log.i("FlixUpdater", msg)
+
     data class Release(val version: String, val url: String, val notes: String)
 
     private fun installedVersion(context: Context) =
@@ -66,10 +69,14 @@ object Updater {
     fun maybeAuto(context: Context) {
         if (!FlixSettings.isOn(context, FlixSettings.AUTO_UPDATE)) return
         val p = prefs(context)
-        if (System.currentTimeMillis() - p.getLong("checked_at", 0) < CHECK_MS) return
+        val since = System.currentTimeMillis() - p.getLong("checked_at", 0)
+        if (since < CHECK_MS) return
+        log("auto-check due (last check ${since / 3600000} h ago)")
         p.edit().putLong("checked_at", System.currentTimeMillis()).apply()
         Thread {
-            val r = runCatching { latest(context) }.getOrNull() ?: return@Thread
+            val r = runCatching { latest(context) }.getOrNull()
+            if (r == null) { log("auto-check: couldn't reach GitHub"); return@Thread }
+            log("auto-check: installed v${installedVersion(context)}, latest v${r.version}, newer=${isNewer(installedVersion(context), r.version)}")
             if (!isNewer(installedVersion(context), r.version)) return@Thread
             prepare(context, r)
         }.start()
@@ -78,9 +85,12 @@ object Updater {
     /** Manual "Check for updates": always checks, reports with toasts, prompts on a newer release. */
     fun checkNow(context: Context) {
         Toast.makeText(context, "Checking for updates…", Toast.LENGTH_SHORT).show()
+        log("manual check started")
         Thread {
             val r = runCatching { latest(context) }
             val release = r.getOrNull()
+            if (release == null) log("manual check: couldn't reach GitHub (${r.exceptionOrNull()?.message})")
+            else log("manual check: installed v${installedVersion(context)}, latest v${release.version}, newer=${isNewer(installedVersion(context), release.version)}")
             val message = when {
                 release == null -> "Couldn't reach GitHub — try again later"
                 !isNewer(installedVersion(context), release.version) -> "You're up to date (v${installedVersion(context)})"
@@ -95,6 +105,7 @@ object Updater {
     private fun prepare(context: Context, r: Release) {
         // Install permission first — no point downloading an update that can't be offered.
         if (!context.packageManager.canRequestPackageInstalls()) {
+            log("install permission NOT granted — offering the Settings page (again at most in 30 min)")
             val p = prefs(context)
             val askedAt = p.getLong("asked_perm_at", 0)
             p.edit().putString("result", "Allow \"Install unknown apps\" for Flix, then check again").apply()
@@ -127,7 +138,9 @@ object Updater {
         prefs(context).edit()
             .putString("result", if (ok) "v${r.version} ready to install" else "Download failed (v${r.version})")
             .apply()
-        if (ok) install(context, apk)
+        if (!ok) { log("download of v${r.version} failed"); return }
+        log("downloaded v${r.version} (${apk.length()} bytes) — handing to the system installer")
+        install(context, apk)
     }
 
     private fun install(context: Context, apk: File) {
@@ -147,6 +160,7 @@ object Updater {
             val sender = android.app.PendingIntent.getBroadcast(context, id, intent, flag).intentSender
             session.commit(sender)
             session.close()
+            log("install session $id committed — the system confirmation should be on screen")
         }.onFailure {
             prefs(context).edit().putString("result", "Install couldn't start: ${it.message}").apply()
             runOnUiThread(context) { Toast.makeText(context, "Update failed: ${it.message}", Toast.LENGTH_LONG).show() }
