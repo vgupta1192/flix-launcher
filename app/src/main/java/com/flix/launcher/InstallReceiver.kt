@@ -18,8 +18,8 @@ class InstallReceiver : BroadcastReceiver() {
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 val confirm: Intent? = if (Build.VERSION.SDK_INT >= 33)
-                    intent.getParcelableExtra(PackageInstaller.EXTRA_INTENT, Intent::class.java)
-                else @Suppress("DEPRECATION") intent.getParcelableExtra(PackageInstaller.EXTRA_INTENT)
+                    intent.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java)
+                else @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 if (confirm != null) runCatching {
                     context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }.onFailure {
