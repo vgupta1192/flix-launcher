@@ -296,9 +296,9 @@ class Hero(root: View) {
     private val main = Handler(Looper.getMainLooper())
     private val width = root.resources.displayMetrics.widthPixels
 
-    /** On 2 GB TVs (weak GPUs) the backdrop swaps on a single layer instead of crossfading two. */
+    /** On 3 GB-and-under TVs (weak GPUs) the backdrop swaps on a single layer instead of crossfading two. */
     private val lite = (root.context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager)
-        .let { am -> android.app.ActivityManager.MemoryInfo().also(am::getMemoryInfo).totalMem < 2_600_000_000L }
+        .let { am -> android.app.ActivityManager.MemoryInfo().also(am::getMemoryInfo).totalMem < 3_400_000_000L }
 
     init {
         // Both shading gradients baked into one small bitmap: one full-screen draw instead of two.

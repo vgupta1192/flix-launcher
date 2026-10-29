@@ -1,3 +1,15 @@
+## [1.0.7] - 2026-10-29
+
+### Changed
+- Performance audit: the "lite" rendering path — built for weak-GPU TVs, drops the ambient
+  glow layer (~3 ms/frame) and crossfades hero backdrops on one layer instead of two — now
+  engages on 3 GB-class TVs (threshold raised from 2.6 GB to 3.4 GB of total RAM). A 2.98 GB
+  TV like ours was previously treated as high-end and ran the expensive path.
+- Everything else the audit measured is already in good shape: 44 MB PSS with a single process
+  (trailer process is killed when not in use), image caches trimmed on stop and on system
+  memory pressure, clock/weather/wallpaper all on disciplined throttles, posters decoded at
+  display width into GPU-side bitmaps, and a shared RecyclerView card pool across rows.
+
 ## [1.0.6] - 2026-10-29
 
 ### Added
