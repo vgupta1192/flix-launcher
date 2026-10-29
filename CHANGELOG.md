@@ -1,3 +1,8 @@
+## [1.1.1] - 2026-10-29
+
+### Fixed
+- The What's-new card now lists the 1.1.0 features (the card shipped in 1.1.0 was one release behind).
+
 ## [1.1.0] - 2026-10-29
 
 ### Added

@@ -9,6 +9,7 @@ import android.content.Context
  */
 object WhatsNew {
     private val notes = listOf(
+        "1.1.0" to "Parental PIN with app locks and Kids mode, photo-frame idle and ambient tint",
         "1.0.8" to "Wallpaper drift, night dimming, surprise picks on the billboard and this card",
         "1.0.7" to "Smoother animations on 3 GB TVs (lite GPU path)",
         "1.0.6" to "Continue watching gained resume cards for all your apps",
