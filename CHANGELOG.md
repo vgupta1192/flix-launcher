@@ -1,3 +1,11 @@
+## [1.1.5] - 2026-10-30
+
+### Changed
+- The featured panel (Play / More info) is now **part of the artwork**: its background and the
+  text scrim take on a deep version of each featured title's dominant colour and crossfade to it
+  on every slide, instead of sitting on a fixed dark-navy card that clashed with brighter
+  artwork. If a colour can't be read, it falls back to the original navy.
+
 ## [1.1.4] - 2026-10-30
 
 ### Added

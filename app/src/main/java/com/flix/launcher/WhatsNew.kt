@@ -9,6 +9,7 @@ import android.content.Context
  */
 object WhatsNew {
     private val notes = listOf(
+        "1.1.5" to "The featured panel now takes its colours from the artwork itself",
         "1.1.4" to "Flix reclaims the home default by itself after Google TV updates steal it",
         "1.1.3" to "Kids mode setup: the empty kids home shows All apps so apps can be tagged",
         "1.1.2" to "Continue watching: app cards now lead the row with their real icons",

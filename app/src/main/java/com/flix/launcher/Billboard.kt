@@ -34,6 +34,20 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     // Two stacked backdrops: the front one fades in over the back one, then the back is released.
     private val backdrops = List(2) { ImageView(activity).apply { scaleType = ImageView.ScaleType.CENTER_CROP } }
     private var front = 0
+    private lateinit var scrim: View
+
+    // The panel borrows the featured artwork's own colour — a deep version for the panel,
+    // a slightly richer one for the text scrim — so it reads as part of the image, not a
+    // fixed dark card on top of it.
+    private var panelColor = 0xFF10141C.toInt()
+    private var scrimTint = 0x0A0D13
+    private var accentAnim: android.animation.ValueAnimator? = null
+
+    private fun gradient() = android.graphics.drawable.GradientDrawable(
+        android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+        intArrayOf(0xF2000000.toInt() or (scrimTint and 0x00FFFFFF),
+                   0xB3000000.toInt() or (scrimTint and 0x00FFFFFF),
+                   scrimTint and 0x00FFFFFF))
     private val dots = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
     private lateinit var info: LinearLayout
     private val logo = ImageView(activity).apply { adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_START; visibility = View.GONE }
@@ -85,10 +99,8 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         // The photos get their own layer, so swapping which one is on top never moves the text.
         addView(FrameLayout(activity).apply { backdrops.forEach { addView(it, FrameLayout.LayoutParams(-1, -1)) } },
             FrameLayout.LayoutParams(-1, -1))
-        addView(View(activity).apply {
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(0xF20A0D13.toInt(), 0xB30A0D13.toInt(), 0x000A0D13))
-        }, FrameLayout.LayoutParams(-1, -1))
+        addView(View(activity).apply { scrim = this; background = gradient() },
+            FrameLayout.LayoutParams(-1, -1))
         addView(LinearLayout(activity).apply {
             info = this
             orientation = LinearLayout.VERTICAL
@@ -186,6 +198,11 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         rows.clear()
         items = emptyList()
         index = 0
+        accentAnim?.cancel()
+        panelColor = 0xFF10141C.toInt()
+        scrimTint = 0x0A0D13
+        view.setBackgroundColor(panelColor)
+        scrim.background = gradient()
         view.visibility = View.GONE
         backdrops.forEach { it.animate().cancel(); it.setImageDrawable(null) }
         logo.setImageDrawable(null)
@@ -239,6 +256,7 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
     private fun show(animate: Boolean) {
         val pick = featured ?: return
         bind(pick)
+        ambientize(pick)
         drawDots()
         if (animate) info.apply { alpha = 0f; animate().alpha(1f).setDuration(FADE_MS).start() }
 
@@ -259,6 +277,44 @@ class Billboard(private val activity: Activity, parent: ViewGroup, private val o
         }
         // Warm the cache for the next title only.
         items.getOrNull((index + 1) % items.size)?.takeIf { it !== pick }?.backdrop?.let { Images.get(it, width) { } }
+    }
+
+    /**
+     * The panel and text scrim take on a deep version of the featured artwork's own colour
+     * (computed from the cached image by [Images.accent]), so the text and buttons sit "in"
+     * the picture instead of on a fixed dark card. Falls back to the navy defaults when the
+     * colour can't be read.
+     */
+    private fun ambientize(pick: Catalog.Title) {
+        val url = pick.backdrop ?: return
+        Images.accent(url) { c ->
+            if (featured !== pick) return@accent
+            val toPanel: Int
+            val toScrim: Int
+            if (c == null) { toPanel = 0xFF10141C.toInt(); toScrim = 0x0A0D13 }
+            else {
+                val hsv = FloatArray(3)
+                android.graphics.Color.colorToHSV(c, hsv)
+                val panel = hsv.copyOf(); panel[2] = (panel[2] * 0.24f).coerceAtMost(0.09f)
+                val scrimC = hsv.copyOf(); scrimC[2] = (scrimC[2] * 0.45f).coerceIn(0.05f, 0.22f)
+                toPanel = android.graphics.Color.HSVToColor(panel)
+                toScrim = android.graphics.Color.HSVToColor(scrimC)
+            }
+            accentAnim?.cancel()
+            val fromP = panelColor; val fromS = scrimTint
+            val eval = android.animation.ArgbEvaluator()
+            accentAnim = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = 500
+                addUpdateListener {
+                    val f = it.animatedValue as Float
+                    panelColor = eval.evaluate(f, fromP, toPanel) as Int
+                    scrimTint = eval.evaluate(f, fromS, toScrim) as Int
+                    view.setBackgroundColor(panelColor)
+                    scrim.background = gradient()
+                }
+                start()
+            }
+        }
     }
 
     private fun bind(pick: Catalog.Title) {
