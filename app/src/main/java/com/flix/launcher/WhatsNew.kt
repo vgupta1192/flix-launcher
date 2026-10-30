@@ -9,6 +9,7 @@ import android.content.Context
  */
 object WhatsNew {
     private val notes = listOf(
+        "1.1.7" to "The launcher recognizes the new Nuvio Native Legacy build (its own package id)",
         "1.1.6" to "Continue watching is Nuvio titles only again; favourite icons stay put",
         "1.1.5" to "The featured panel now takes its colours from the artwork itself",
         "1.1.4" to "Flix reclaims the home default by itself after Google TV updates steal it",

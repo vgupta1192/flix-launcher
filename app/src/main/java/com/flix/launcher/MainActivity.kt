@@ -1309,8 +1309,15 @@ class MainActivity : Activity() {
     companion object {
         const val NUVIO_OFFICIAL = "com.nuvio.tv"
         /** Nuvio builds to prefer, most personal first: the user's own NuvioTV build (their backend,
-         *  their login) before the official Play Store app. */
-        private val NUVIO_BUILDS = listOf("com.nuvio.tv.jellyfintv", NUVIO_OFFICIAL)
+         *  their login) before the official Play Store app. The native-legacy self-host build is
+         *  the one currently on the TV (its own package id); the older NuvioTV builds stay listed
+         *  so reverting to them keeps working. */
+        private val NUVIO_BUILDS = listOf(
+            "space.nuvio.nativelegacy.selfhost",
+            "space.nuvio.nativelegacy",
+            "com.nuvio.tv.jellyfintv",
+            NUVIO_OFFICIAL,
+        )
 
         /** The installed Nuvio to open titles in — the user's build when present, else the official app. */
         fun nuvio(pm: android.content.pm.PackageManager): String =

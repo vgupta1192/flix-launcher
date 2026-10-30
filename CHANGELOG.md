@@ -1,3 +1,13 @@
+## [1.1.7] - 2026-10-31
+
+### Fixed
+- Nuvio was stuck installed-but-invisible on the TV (it had landed in the TV's hidden second
+  user profile, which the interface never shows — that state is now fully uninstalled). The new
+  **Nuvio Native Legacy 2.0.7 self-host build** (`space.nuvio.nativelegacy.selfhost`, a different
+  package id than the old NuvioTV builds) is now recognized everywhere the launcher looks for
+  Nuvio: Continue watching, title deep links and feature gating. The older build ids stay
+  supported so switching back keeps working.
+
 ## [1.1.6] - 2026-10-30
 
 ### Removed
