@@ -1,3 +1,15 @@
+## [1.2.0] - 2026-10-31
+
+### Added
+- **"Open titles in"** (Settings → Movies & shows → Nuvio section): pick which installed Nuvio
+  opens titles — Auto (best installed) or any specific one. Every Nuvio build is recognised by
+  what it can actually open, not just by its package name.
+- **Scheme-aware deep links.** The NuvioTV builds answer `nuvio://` links while the Nuvio
+  Native Legacy build answers `nuvio-legacy://` — that mismatch is why title taps did nothing
+  with both installed. Links are now built in the chosen app's own scheme, with the standard
+  `stremio:///detail/…` link as a universal fallback, on the home rows, the billboard and the
+  All apps page.
+
 ## [1.1.8] - 2026-10-31
 
 ### Added

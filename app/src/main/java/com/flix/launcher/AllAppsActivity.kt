@@ -302,10 +302,21 @@ class AllAppsActivity : Activity() {
     }
 
     private fun openTitle(title: Catalog.Title) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(MainActivity.nuvio(packageManager))
-        if (intent.resolveActivity(packageManager) == null) {
+        // Same scheme-aware hand-off as the home screen: the link is built in the chosen
+        // Nuvio's own scheme, with the standard stremio link as the universal fallback.
+        val (pkg, scheme) = MainActivity.nuvioTarget(this) ?: run {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
+        }
+        val primary = Intent(Intent.ACTION_VIEW, Uri.parse(title.uri(scheme))).setPackage(pkg)
+        val intent = if (primary.resolveActivity(packageManager) != null) primary
+        else {
+            val stremio = Intent(Intent.ACTION_VIEW, Uri.parse(title.uri("stremio"))).setPackage(pkg)
+            if (stremio.resolveActivity(packageManager) == null) {
+                Toast.makeText(this, "Nuvio can't open this title — update the app", Toast.LENGTH_SHORT).show()
+                return
+            }
+            stremio
         }
         startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
     }

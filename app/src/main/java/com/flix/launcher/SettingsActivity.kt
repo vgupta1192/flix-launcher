@@ -387,6 +387,7 @@ class SettingsActivity : Activity() {
 
         // Movies & shows
         add(Entry(1, null, "Nuvio account sign in login profile continue watching") { nuvioCard() })
+        add(Entry(1, null, "Nuvio open titles in which app instance choose native legacy jellyfin auto") { nuvioAppCard() })
         add(Entry(1, null, "Addons rows catalogues order choose") { rowsCard() })
         opt(1, "On the home screen", FlixSettings.SUGGESTIONS, R.drawable.ic_o_rows, "films movies series")
         opt(1, "On the home screen", FlixSettings.BILLBOARD, R.drawable.ic_o_layers, "carousel billboard banner featured hero slideshow poster")
@@ -722,7 +723,7 @@ class SettingsActivity : Activity() {
     private fun nuvioCard(): View {
         val signedIn = NuvioAccount.isSignedIn(this)
         val profile = NuvioAccount.profile(this)?.name
-        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.nuvio(packageManager)) }.getOrNull()
+        val logo = runCatching { packageManager.getApplicationIcon(MainActivity.nuvioTarget(this)?.first ?: MainActivity.nuvio(packageManager)) }.getOrNull()
         val art = if (logo != null) ImageView(this).apply {
             setImageDrawable(logo)
             background = GradientDrawable().apply { cornerRadius = 11 * dp; setColor(0xFF0B0F1A.toInt()) }
@@ -737,6 +738,48 @@ class SettingsActivity : Activity() {
             badgeColor = if (signedIn) 0xFF16A34A.toInt() else RED,
         ) { open(NuvioLoginActivity::class.java) }
     }
+
+    /**
+     * Which installed Nuvio opens titles from the rows and Continue watching. The choices are
+     * whatever is actually installed ("auto" always leads); the deep link is built in that
+     * app's own scheme, so both NuvioTV and the native-legacy build take them.
+     */
+    private fun nuvioAppCard(): View {
+        val installed = MainActivity.nuvioAppsInstalled(packageManager)
+        val pick = FlixSettings.nuvioAppPref(this)
+        val label = if (pick == "auto") "Auto"
+        else installed.firstOrNull { it.first == pick }?.let { appName(it.first) } ?: "Auto"
+        val current = MainActivity.nuvioTarget(this)
+        val (tile, _) = iconTile(R.drawable.ic_o_filter)
+        return heroRow(
+            art = tile,
+            title = "Open titles in",
+            subtitle = when {
+                installed.isEmpty() -> "No Nuvio app is installed"
+                current == null -> label
+                else -> "$label · titles open in ${appName(current.first)}"
+            },
+            badge = "Choose",
+            badgeColor = 0x2EFFFFFF,
+        ) {
+            if (installed.isEmpty()) { toast("Install Nuvio first"); return@heroRow }
+            val options = buildList {
+                add("Auto — best installed Nuvio" to {
+                    FlixSettings.setNuvioApp(this@SettingsActivity, "auto"); refresh(animate = false)
+                })
+                installed.forEach { (pkg, scheme) ->
+                    val linkNote = if (scheme == "nuvio") "" else " — $scheme links"
+                    add("${appName(pkg)}$linkNote" to {
+                        FlixSettings.setNuvioApp(this@SettingsActivity, pkg); refresh(animate = false)
+                    })
+                }
+            }
+            OptionsMenu.show(this@SettingsActivity, "Open titles in", options)
+        }
+    }
+
+    private fun appName(pkg: String): String =
+        runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrNull() ?: pkg
 
     /** Update check: current version, last result, and a tap to check GitHub releases now. */
     private fun updateCard(): View {

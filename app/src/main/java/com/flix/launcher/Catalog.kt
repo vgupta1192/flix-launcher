@@ -37,11 +37,21 @@ object Catalog {
     ) {
         /** Opens the title's page in Nuvio, ready to pick a stream and play. */
         val nuvioUri: String
-            get() {
-                val base = "nuvio://detail/$type/${java.net.URLEncoder.encode(id, "UTF-8")}"
-                return if (id.startsWith("tt") || addonBase == null) base
-                else "$base?addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}"
-            }
+            get() = uri("nuvio")
+
+        /**
+         * The same link in [scheme]. The NuvioTV builds answer "nuvio://", the native-legacy
+         * build answers "nuvio-legacy://" (see MainActivity.NUVIO_APPS), and every Nuvio so
+         * far also declares Stremio's standard "stremio:///detail/…" — that last one is the
+         * shape-strict universal fallback when an app's own scheme is unknown.
+         */
+        fun uri(scheme: String): String {
+            val enc = java.net.URLEncoder.encode(id, "UTF-8")
+            val query = if (!id.startsWith("tt") && addonBase != null)
+                "?addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}" else ""
+            return if (scheme == "stremio") "stremio:///detail/$type/$enc$query"
+            else "$scheme://detail/$type/$enc$query"
+        }
     }
 
     private const val MAX_AGE_MS = 6 * 60 * 60 * 1000L

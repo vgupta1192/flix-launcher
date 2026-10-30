@@ -315,7 +315,7 @@ class MainActivity : Activity() {
         PinLock.kidsMode(this),
         Addons.rows(this),
         NuvioAccount.isSignedIn(this),
-        packageManager.getLaunchIntentForPackage(nuvio(packageManager)) != null,
+        nuvioTarget(this) != null,
     )
 
     // ---- Browsing movie rows: the clock steps aside for a preview of the focused title ----
@@ -482,10 +482,21 @@ class MainActivity : Activity() {
             return
         }
         if (title.id.startsWith("app:")) return openResumeApp(title.id.removePrefix("app:"), title.name)
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(title.nuvioUri)).setPackage(nuvio(packageManager))
-        if (intent.resolveActivity(packageManager) == null) {
+        // The link goes out in the chosen Nuvio's own scheme (nuvio vs nuvio-legacy); if the
+        // app ever drops that, every Nuvio still answers the standard stremio link.
+        val (pkg, scheme) = nuvioTarget(this) ?: run {
             Toast.makeText(this, "Install Nuvio to watch this", Toast.LENGTH_SHORT).show()
             return
+        }
+        val primary = Intent(Intent.ACTION_VIEW, Uri.parse(title.uri(scheme))).setPackage(pkg)
+        val intent = if (primary.resolveActivity(packageManager) != null) primary
+        else {
+            val stremio = Intent(Intent.ACTION_VIEW, Uri.parse(title.uri("stremio"))).setPackage(pkg)
+            if (stremio.resolveActivity(packageManager) == null) {
+                Toast.makeText(this, "Nuvio can't open this title — update the app", Toast.LENGTH_SHORT).show()
+                return
+            }
+            stremio
         }
         // Nuvio is a heavy app to start; give it the TV's full attention. Stop the trailer
         // (its process and memory) and skip the home screen's zoom-out, which competed with
@@ -1326,20 +1337,39 @@ class MainActivity : Activity() {
 
     companion object {
         const val NUVIO_OFFICIAL = "com.nuvio.tv"
-        /** Nuvio builds to prefer, most personal first: the user's own NuvioTV build (their backend,
-         *  their login) before the official Play Store app. The native-legacy self-host build is
-         *  the one currently on the TV (its own package id); the older NuvioTV builds stay listed
-         *  so reverting to them keeps working. */
-        private val NUVIO_BUILDS = listOf(
-            "space.nuvio.nativelegacy.selfhost",
-            "space.nuvio.nativelegacy",
-            "com.nuvio.tv.jellyfintv",
-            NUVIO_OFFICIAL,
+
+        /**
+         * Known Nuvio builds and the deep-link scheme each one actually answers. The
+         * native-legacy build speaks "nuvio-legacy" while the NuvioTV builds speak "nuvio" —
+         * a title link is built in the chosen app's own scheme, so "recognising" an app here
+         * means it can really take the link, not just that the package exists. Most personal
+         * first.
+         */
+        private val NUVIO_APPS = listOf(
+            "space.nuvio.nativelegacy.selfhost" to "nuvio-legacy",
+            "space.nuvio.nativelegacy" to "nuvio-legacy",
+            "com.nuvio.tv.jellyfintv" to "nuvio",
+            NUVIO_OFFICIAL to "nuvio",
         )
 
-        /** The installed Nuvio to open titles in — the user's build when present, else the official app. */
+        /** Installed Nuvio builds with their schemes, most personal first. */
+        fun nuvioAppsInstalled(pm: android.content.pm.PackageManager): List<Pair<String, String>> =
+            NUVIO_APPS.filter { (pkg, _) -> pm.getLaunchIntentForPackage(pkg) != null }
+
+        /** The Nuvio titles open in: the app picked in Settings → Nuvio → "Open titles in",
+         *  or the best installed build when left on auto. Null when no Nuvio is installed. */
+        fun nuvioTarget(context: Context): Pair<String, String>? {
+            val installed = nuvioAppsInstalled(context.packageManager)
+            if (installed.isEmpty()) return null
+            val pick = FlixSettings.nuvioAppPref(context)
+            if (pick != "auto") installed.firstOrNull { it.first == pick }?.let { return it }
+            return installed.first()
+        }
+
+        /** The installed Nuvio package for feature gating and icons — the user's build when
+         *  present, else the official app. Kept for callers that only need "is Nuvio there". */
         fun nuvio(pm: android.content.pm.PackageManager): String =
-            NUVIO_BUILDS.firstOrNull { pm.getLaunchIntentForPackage(it) != null } ?: NUVIO_OFFICIAL
+            NUVIO_APPS.firstOrNull { pm.getLaunchIntentForPackage(it.first) != null }?.first ?: NUVIO_OFFICIAL
 
         /** How long each wallpaper photo stays up. */
         const val ROTATE_MS = 60_000L

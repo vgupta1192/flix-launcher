@@ -100,5 +100,13 @@ object FlixSettings {
     /** Bumped on every change, so the home screen knows when to re-apply. */
     fun revision(context: Context) = prefs(context).getInt(KEY_REVISION, 0)
 
+    // ---- Which Nuvio opens titles: not a plain Option because the choices are whatever
+    // Nuvio builds are actually installed ("auto" plus those). Picked on Settings' Nuvio card. ----
+    fun nuvioAppPref(context: Context): String = prefs(context).getString("nuvio_app", "auto") ?: "auto"
+
+    fun setNuvioApp(context: Context, id: String) {
+        prefs(context).edit().putString("nuvio_app", id).apply()
+    }
+
     private const val KEY_REVISION = "revision"
 }
