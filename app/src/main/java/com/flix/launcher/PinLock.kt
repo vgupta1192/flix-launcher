@@ -33,6 +33,15 @@ object PinLock {
 
     fun setKids(context: Context, on: Boolean) = prefs(context).edit().putBoolean("kids", on).apply()
 
+    /** Removes an uninstalled app's kid/lock tags so nothing keeps referencing a dead package. */
+    fun forgetApp(context: Context, pkg: String): Boolean {
+        val kids = kidApps(context)
+        val locked = lockedApps(context)
+        if (pkg !in kids && pkg !in locked) return false
+        prefs(context).edit().putStringSet("kid_apps", kids - pkg).putStringSet("locked_apps", locked - pkg).apply()
+        return true
+    }
+
     /** Returns the new state. */
     fun toggleKidApp(context: Context, pkg: String): Boolean {
         val set = kidApps(context).toMutableSet()

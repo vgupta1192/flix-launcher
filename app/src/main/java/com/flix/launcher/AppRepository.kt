@@ -33,6 +33,10 @@ class AppRepository(private val context: Context) {
      * Built tiles are kept per app version, so later reloads only list packages.
      */
     fun loadApps(first: Collection<String> = emptyList(), onFirst: ((List<AppEntry>) -> Unit)? = null): List<AppEntry> {
+        if (ghostsDirty) {
+            purgeGhosts()
+            ghostsDirty = false
+        }
         val seen = HashSet<String>()
         val found = ArrayList<ResolveInfo>()
         for (category in listOf(Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER)) {
@@ -173,6 +177,57 @@ class AppRepository(private val context: Context) {
         prefs.edit().putStringSet(KEY_HIDDEN, hidden - pkg).apply()
     }
 
+    /** Removes every trace of an uninstalled app from the launcher's own state: the favourites
+     *  order, the hidden list, its drawn tile and its accent lookups. True when something was
+     *  actually removed. */
+    fun forget(pkg: String): Boolean {
+        if (pkg.isBlank() || pkg == context.packageName) return false
+        var changed = false
+        // Work on the raw stored string so a fresh install's DEFAULT_FAVORITES isn't
+        // accidentally written out as an explicit list by a purge.
+        prefs.getString(KEY_FAVORITES, null)?.let { saved ->
+            val kept = saved.split(',').filter { it.isNotBlank() && it != pkg }
+            if (kept.size != saved.split(',').count { it.isNotBlank() }) {
+                prefs.edit().putString(KEY_FAVORITES, kept.joinToString(",")).apply()
+                changed = true
+            }
+        }
+        if (pkg in hidden) {
+            prefs.edit().putStringSet(KEY_HIDDEN, hidden - pkg).apply()
+            changed = true
+        }
+        built.remove(pkg)?.let { changed = true }
+        // Accent lookups are keyed "pkg@version" and never expire on their own; dead ones
+        // would sit in prefs forever.
+        for (key in looks.all.keys) if (key != null && key.startsWith("$pkg@")) {
+            looks.edit().remove(key).apply()
+            changed = true
+        }
+        return changed
+    }
+
+    /**
+     * Drops stored references to packages that can no longer be launched — apps uninstalled
+     * while the launcher wasn't running, or stuck in another TV user profile (which is how
+     * Nuvio once went "installed but not showing"), leave nothing behind. Runs at most once
+     * per dirty signal, inside loadApps' background executor.
+     */
+    private fun purgeGhosts() {
+        val stored = prefs.getString(KEY_FAVORITES, null)?.split(',')?.filter { it.isNotBlank() }.orEmpty()
+        val tracked = (stored + hidden + PinLock.kidApps(context) + PinLock.lockedApps(context) +
+                Resumes.packages(context)).filter { it.isNotBlank() && !it.startsWith("flix:") && it != context.packageName }
+        var dropped = 0
+        for (pkg in tracked) {
+            val launchable = pm.getLeanbackLaunchIntentForPackage(pkg) ?: pm.getLaunchIntentForPackage(pkg)
+            if (launchable == null) {
+                if (forget(pkg)) dropped++
+                PinLock.forgetApp(context, pkg)
+                Resumes.forget(context, pkg)
+            }
+        }
+        android.util.Log.i("FlixCleaner", "ghost purge: checked ${tracked.size} stored packages, dropped $dropped")
+    }
+
     fun resetOrder() {
         prefs.edit().remove(KEY_FAVORITES).remove(KEY_ORDER_VERSION).apply()
     }
@@ -196,6 +251,12 @@ class AppRepository(private val context: Context) {
 
         /** Tiles already drawn, by package, with the app version they were drawn from. */
         private val built = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, AppEntry>>()
+
+        /**
+         * Set when any package add/remove/change is seen — and on process start, so packages
+         * uninstalled while the launcher wasn't running are caught on the first rebuild.
+         */
+        @Volatile internal var ghostsDirty = true
         private const val BANNER_W = 384
         private const val BANNER_H = 216
         private const val KEY_FAVORITES = "favorites"
@@ -204,7 +265,9 @@ class AppRepository(private val context: Context) {
         private const val KEY_ORDER_VERSION = "favorites_order_version"
         private const val ORDER_VERSION = 2
         private const val SMARTTUBE = "org.smarttube.stable"
-        private val LEADING = listOf("com.nuvio.tv.jellyfintv", "com.nuvio.tv", "ar.tvplayer.tv", SMARTTUBE)
+        private val LEADING = listOf(
+            "space.nuvio.nativelegacy.selfhost", "com.nuvio.tv.jellyfintv", "com.nuvio.tv",
+            "ar.tvplayer.tv", SMARTTUBE)
         private val HIDDEN = setOf("com.spocky.projengmenu")
         private val DEFAULT_FAVORITES = LEADING + listOf(
             "com.stremio.one",

@@ -17,4 +17,14 @@ object Resumes {
         if (pkg.isNullOrBlank() || pkg == context.packageName) return
         prefs(context).edit().putLong(pkg, System.currentTimeMillis()).apply()
     }
+
+    /** Every package with a launch note — the ghost purge checks these against what's installed. */
+    fun packages(context: Context): Set<String> = prefs(context).all.keys
+
+    /** Drops an uninstalled app's note. */
+    fun forget(context: Context, pkg: String): Boolean {
+        if (!prefs(context).contains(pkg)) return false
+        prefs(context).edit().remove(pkg).apply()
+        return true
+    }
 }

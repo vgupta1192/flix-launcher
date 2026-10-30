@@ -1,3 +1,15 @@
+## [1.1.8] - 2026-10-31
+
+### Added
+- **Uninstall cleanup.** When any app is removed from the TV, the launcher now wipes every
+  reference it kept to it on the spot: its favourites tile, kid-app and PIN-lock tags, resume
+  note, drawn tile cache and the per-app colour lookups (which previously accumulated forever).
+- **Ghost purge as a safety net:** on the first rebuild after any package change (and on every
+  launcher start), stored references are checked against what's actually launchable and dead
+  ones are dropped — covering apps removed while the launcher wasn't running or stuck in the
+  TV's hidden second user profile, which is how Nuvio once went "installed but not showing".
+  Every step logs to logcat under `FlixCleaner`.
+
 ## [1.1.7] - 2026-10-31
 
 ### Fixed

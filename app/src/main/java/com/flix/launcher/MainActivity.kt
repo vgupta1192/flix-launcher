@@ -129,7 +129,24 @@ class MainActivity : Activity() {
     }
 
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = loadApps()
+        override fun onReceive(context: Context, intent: Intent) {
+            // An app was uninstalled: wipe every stored reference to it right away so no
+            // dead favourite, kid tag, lock, resume note or cached tile is left behind
+            // (updates also fire REMOVED, with EXTRA_REPLACING set — keep those).
+            val removing = intent.action == Intent.ACTION_PACKAGE_REMOVED ||
+                    intent.action == Intent.ACTION_PACKAGE_FULLY_REMOVED
+            val pkg = intent.data?.schemeSpecificPart.orEmpty()
+            if (removing && !intent.getBooleanExtra(Intent.EXTRA_REPLACING, false) && pkg.isNotBlank()) {
+                val cleaned = buildList {
+                    if (repo.forget(pkg)) add("favourites/tiles")
+                    if (PinLock.forgetApp(this@MainActivity, pkg)) add("kid/lock tags")
+                    if (Resumes.forget(this@MainActivity, pkg)) add("resume note")
+                }
+                android.util.Log.i("FlixCleaner", "$pkg removed — cleaned: ${cleaned.ifEmpty { listOf("nothing stored") }.joinToString()}")
+            }
+            AppRepository.ghostsDirty = true
+            loadApps()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -188,6 +205,7 @@ class MainActivity : Activity() {
         registerReceiver(packageReceiver, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED)
             addAction(Intent.ACTION_PACKAGE_CHANGED)
             addDataScheme("package")
         })
