@@ -9,6 +9,7 @@ import android.content.Context
  */
 object WhatsNew {
     private val notes = listOf(
+        "1.2.1" to "Titles open on the right page in Nuvio Native Legacy too (its links say meta, not detail)",
         "1.2.0" to "Titles open in whichever Nuvio you choose — every build is recognised now",
         "1.1.8" to "Uninstalled apps are now cleaned out of the launcher automatically",
         "1.1.7" to "The launcher recognizes the new Nuvio Native Legacy build (its own package id)",

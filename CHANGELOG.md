@@ -1,3 +1,15 @@
+## [1.2.1] - 2026-10-31
+
+### Fixed
+- Titles now open **on the title's page** in Nuvio Native Legacy, like they always did in the
+  NuvioTV builds. The legacy app's link language turned out to be different twice over: it
+  answers `nuvio-legacy://` but only recognises paths shaped `meta/{type}/{id}` — the launcher
+  was sending `detail/…` (the NuvioTV shape), which the app silently ignored, so it opened on
+  its home screen with no title. Verified end to end on the TV: a legacy link now lands
+  straight on the film's detail page.
+- Note: the legacy app only deep-links IMDb (`tt…`) and TMDB ids — titles with addon-specific
+  ids still open the app but not the title (the app doesn't read `addonBaseUrl` yet).
+
 ## [1.2.0] - 2026-10-31
 
 ### Added

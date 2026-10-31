@@ -40,17 +40,23 @@ object Catalog {
             get() = uri("nuvio")
 
         /**
-         * The same link in [scheme]. The NuvioTV builds answer "nuvio://", the native-legacy
-         * build answers "nuvio-legacy://" (see MainActivity.NUVIO_APPS), and every Nuvio so
-         * far also declares Stremio's standard "stremio:///detail/…" — that last one is the
-         * shape-strict universal fallback when an app's own scheme is unknown.
+         * The same link in [scheme]. Each Nuvio speaks its own path shape (see
+         * MainActivity.NUVIO_APPS):
+         * - NuvioTV builds: `nuvio://detail/{type}/{id}[?addonBaseUrl=…]`
+         * - Nuvio Native Legacy (its parser only knows "meta"): `nuvio-legacy://meta/{type}/{id}`
+         *   — and its ids must be IMDb (tt…) or TMDB; addon-specific ids can't deep-link there.
+         * - Stremio's standard, which every Nuvio declares as the universal fallback:
+         *   `stremio:///detail/{type}/{id}`
          */
         fun uri(scheme: String): String {
             val enc = java.net.URLEncoder.encode(id, "UTF-8")
             val query = if (!id.startsWith("tt") && addonBase != null)
                 "?addonBaseUrl=${java.net.URLEncoder.encode(addonBase, "UTF-8")}" else ""
-            return if (scheme == "stremio") "stremio:///detail/$type/$enc$query"
-            else "$scheme://detail/$type/$enc$query"
+            return when (scheme) {
+                "nuvio-legacy" -> "nuvio-legacy://meta/$type/$enc"
+                "stremio" -> "stremio:///detail/$type/$enc$query"
+                else -> "$scheme://detail/$type/$enc$query"
+            }
         }
     }
 
